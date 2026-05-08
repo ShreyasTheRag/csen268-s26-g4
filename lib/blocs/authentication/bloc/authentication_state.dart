@@ -1,0 +1,25 @@
+part of 'authentication_bloc.dart';
+
+@immutable
+sealed class AuthenticationState {}
+
+final class AuthenticationInitialState extends AuthenticationState {}
+
+final class AuthenticationNotSignedInState extends AuthenticationState {}
+
+final class AuthenticationSignedInState extends AuthenticationState {
+  final User user;
+
+  AuthenticationSignedInState({required this.user});
+}
+
+final class AuthenticationVerifyEmailState extends AuthenticationState {}
+
+final class AuthenticationEmailVerificationScreenState
+    extends AuthenticationState {}
+
+final class AuthenticationErrorState extends AuthenticationState {
+  final String error;
+
+  AuthenticationErrorState({required this.error});
+}
