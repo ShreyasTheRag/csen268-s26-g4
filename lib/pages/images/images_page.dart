@@ -11,7 +11,7 @@ class ImagesPage extends StatelessWidget {
         appBar: AppBar(
           title: const Text("Images"),
         ),
-        drawer: MainDrawer(),
+        drawer: const MainDrawer(),
         body: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(

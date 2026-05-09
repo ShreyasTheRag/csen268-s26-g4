@@ -28,8 +28,8 @@ class BrightnessSelector extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         behavior: SnackBarBehavior.floating,
-                        content: Text("Switched to light mode"),
-                        margin: EdgeInsets.all(10),
+                        content: const Text("Switched to light mode"),
+                        margin: const EdgeInsets.all(10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -58,8 +58,8 @@ class BrightnessSelector extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         behavior: SnackBarBehavior.floating,
-                        content: Text("Switched to dark mode"),
-                        margin: EdgeInsets.all(10),
+                        content: const Text("Switched to dark mode"),
+                        margin: const EdgeInsets.all(10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -88,8 +88,8 @@ class BrightnessSelector extends StatelessWidget {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         behavior: SnackBarBehavior.floating,
-                        content: Text("Switched to system mode"),
-                        margin: EdgeInsets.all(10),
+                        content: const Text("Switched to system mode"),
+                        margin: const EdgeInsets.all(10),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
