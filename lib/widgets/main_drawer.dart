@@ -1,4 +1,6 @@
+import 'package:go_router/go_router.dart';
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
+import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/brightness_selector.dart';
 import 'package:santa_clara/widgets/email_verification_button.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
@@ -30,16 +32,18 @@ class MainDrawer extends StatelessWidget {
             ),
             if (navigationItems != null) ...navigationItems!,
             TextButton.icon(
-                icon: const Icon(Icons.question_mark),
-                label: const Text("Other"),
+                icon: const Icon(Icons.location_on),
+                label: const Text("Campsite Locator"),
+                onPressed: () {
+                  GoRouter.of(context).goNamed(IndexedRoutes.routes[2].name);
+                }),
+            TextButton.icon(
+                icon: const Icon(Icons.directions_car),
+                label: const Text("Your Vehicle"),
                 onPressed: () {}),
             TextButton.icon(
-                icon: const Icon(Icons.question_mark),
-                label: const Text("Other"),
-                onPressed: () {}),
-            TextButton.icon(
-                icon: const Icon(Icons.question_mark),
-                label: const Text("Other"),
+                icon: const Icon(Icons.assistant_navigation),
+                label: const Text("Plan a Trip"),
                 onPressed: () {}),
             const EmailVerificationButton(),
             TextButton.icon(

@@ -90,7 +90,7 @@ class MyApp extends StatelessWidget {
             builder: (context, state) {
               return MaterialApp.router(
                 debugShowCheckedModeBanner: false,
-                title: 'Santa Clara',
+                title: 'Treksetter',
                 theme: theme.light(),
                 darkTheme: theme.dark(),
                 highContrastTheme: theme.lightHighContrast(),

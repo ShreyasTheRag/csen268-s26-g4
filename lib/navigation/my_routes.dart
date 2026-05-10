@@ -3,6 +3,7 @@ import 'package:santa_clara/pages/generic/generic_page.dart';
 import 'package:santa_clara/pages/profile/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
+import 'package:santa_clara/pages/yourVehicle/your_vehicle_page.dart';
 
 import '../pages/images/images_page.dart';
 // import 'package:go_router/go_router.dart';
@@ -39,7 +40,7 @@ class IndexedRoutes {
         path: MyRoutes.chat.path,
         label: 'Chat',
         icon: Icons.chat,
-        child: const GenericPage(title: "Chat")),
+        child: const YourVehiclePage()),
     MyRoute(
         name: MyRoutes.profile.name,
         path: MyRoutes.profile.path,
