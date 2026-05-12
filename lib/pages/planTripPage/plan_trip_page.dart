@@ -47,7 +47,7 @@ class PlanTripPage extends StatelessWidget {
                   const SectionLabel('LOCATION PLANNED'),
                   HorizontalScrollList(
                     height: 100,
-                    itemCount: 3,
+                    itemCount: 5,
                     itemBuilder: (context, index) => const LocationCard(
                       locationName: 'Location',
                       imageAsset: 'assets/car.png',
@@ -83,9 +83,9 @@ class PlanTripPage extends StatelessWidget {
                   const SectionLabel('YOUR IMAGES'),
                   HorizontalScrollList(
                     height: 100,
-                    itemCount: 4,
+                    itemCount: 10,
                     itemBuilder: (context, index) => const RemovableImageCard(
-                      imageAsset: 'assets/car.png',
+                      imageAsset: 'assets/car.png', // TODO: update for different images
                     ),
                   ),
                   const SizedBox(height: 12),
