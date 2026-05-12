@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:santa_clara/blocs/trip.dart';
+import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
 
 import '../../widgets/full_width_button.dart';
@@ -83,7 +85,9 @@ class PlanTripPage extends StatelessWidget {
                   const SizedBox(height: 12),
                   FullWidthButton(
                     text: 'Add Location',
-                    onPressed: () {},
+                    onPressed: () {
+                      GoRouter.of(context).goNamed(IndexedRoutes.routes[5].name);
+                    },
                     color: const Color(0xFF558B2F),
                   ),
                   const SizedBox(height: 20),
@@ -139,7 +143,10 @@ class PlanTripPage extends StatelessWidget {
                         child: FullWidthButton(
                           text: 'Finished Trip',
                           color: const Color(0xFF558B2F),
-                          onPressed: () {},
+                          onPressed: () {
+                            GoRouter.of(context).goNamed(IndexedRoutes.routes[3].name); // Go to profile pages
+                            // TODO: update database
+                          },
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -147,7 +154,10 @@ class PlanTripPage extends StatelessWidget {
                         child: FullWidthButton(
                           text: 'Delete Trip',
                           color: const Color(0xFF335C1F),
-                          onPressed: () {},
+                          onPressed: () {
+                            GoRouter.of(context).goNamed(IndexedRoutes.routes[3].name); // Go to profile pages
+                            // TODO: update database
+                          },
                         ),
                       ),
                     ],

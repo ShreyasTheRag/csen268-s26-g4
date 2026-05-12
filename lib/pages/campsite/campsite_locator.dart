@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:santa_clara/models/campsite.dart';
+import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
 
 class CampsiteLocatorPage extends StatefulWidget {
@@ -166,7 +168,10 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                             const Text('4.2(26)★'),
                             const SizedBox(width: 8),
                             ElevatedButton(
-                              onPressed: () {},
+                              onPressed: () {
+                                GoRouter.of(context).goNamed(IndexedRoutes.routes[6].name); // Go to campsite info pages
+                                // TODO: pass selected location information to next page
+                              },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFD9D9D9),
                                 foregroundColor: Colors.black,
@@ -174,7 +179,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                               ),
                               child: const Text('Learn More'),
-                            ),
+                                                          ),
                           ],
                         )
                       ],
@@ -210,7 +215,9 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
           minimumSize: const Size(double.infinity, 50),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
-        onPressed: () {},
+        onPressed: () {
+          GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name); // Go to trip page
+        },
         child: const Text('View Trip', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       ),
     );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
@@ -81,7 +83,9 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
 
             FullWidthButton(
               text: 'Add Location To Trip',
-              onPressed: () {},
+              onPressed: () { // TODO: add logic to save location and have that info transfer over to next screen
+                GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name);
+              },
               color: const Color(0xFF558B2F),
             ),
             const SizedBox(height: 40),

@@ -1,4 +1,7 @@
 import 'package:santa_clara/pages/articles/articles_page.dart';
+import 'package:santa_clara/pages/campsite/campsite_info.dart';
+import 'package:santa_clara/pages/campsite/campsite_locator.dart';
+import 'package:santa_clara/pages/planTripPage/plan_trip_page.dart';
 import 'package:santa_clara/pages/profile/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
@@ -18,6 +21,9 @@ class MyRoutes {
   static MyRoute profileFriends =
       MyRoute(name: 'profileFriends', path: 'friends');
   static MyRoute profile = MyRoute(name: 'profile', path: 'profile');
+  static MyRoute planTrip = MyRoute(name: 'Plan a Trip', path: 'planTrip');
+  static MyRoute campsiteSelector = MyRoute(name: 'Campsite Selector', path: 'campsiteSelector');
+  static MyRoute campsiteInfo = MyRoute(name: 'Campsite Info', path: 'CampsiteInfoPage');
 }
 
 class IndexedRoutes {
@@ -47,6 +53,24 @@ class IndexedRoutes {
         label: 'Profile',
         icon: Icons.person,
         child: const ProfilePage()),
+    MyRoute(
+        name: MyRoutes.planTrip.name,
+        path: MyRoutes.planTrip.path,
+        label: 'Plan a Trip',
+        icon: Icons.navigation,
+        child: const PlanTripPage()),
+    MyRoute(
+        name: MyRoutes.campsiteSelector.name,
+        path: MyRoutes.campsiteSelector.path,
+        label: 'Campsite Selector',
+        icon: Icons.travel_explore,
+        child: const CampsiteLocatorPage()),
+    MyRoute(
+        name: MyRoutes.campsiteInfo.name,
+        path: MyRoutes.campsiteInfo.path,
+        label: 'Campsite Info',
+        icon: Icons.forest,
+        child: const CampsiteInfoPage()),
   ];
 
   int getIndex(String path) {

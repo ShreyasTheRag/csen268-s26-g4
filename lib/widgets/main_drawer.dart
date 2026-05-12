@@ -44,7 +44,9 @@ class MainDrawer extends StatelessWidget {
             TextButton.icon(
                 icon: const Icon(Icons.assistant_navigation),
                 label: const Text("Plan a Trip"),
-                onPressed: () {}),
+                onPressed: () {
+                  GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name);
+                }),
             const EmailVerificationButton(),
             TextButton.icon(
                 icon: const Icon(Icons.logout),

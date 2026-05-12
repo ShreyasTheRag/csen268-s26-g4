@@ -130,7 +130,28 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                       ],
                     ),
                   ],
-                )
+                ),
+                GoRoute(
+                  name: IndexedRoutes.routes[4].name,
+                  path: IndexedRoutes.routes[4].path,
+                  builder: (context, state) {
+                    return IndexedRoutes.routes[4].child ?? Container();
+                  },
+                ),
+                GoRoute(
+                  name: IndexedRoutes.routes[5].name,
+                  path: IndexedRoutes.routes[5].path,
+                  builder: (context, state) {
+                    return IndexedRoutes.routes[5].child ?? Container();
+                  },
+                ),
+                GoRoute(
+                  name: IndexedRoutes.routes[6].name,
+                  path: IndexedRoutes.routes[6].path,
+                  builder: (context, state) {
+                    return IndexedRoutes.routes[6].child ?? Container();
+                  },
+                ),
               ],
               builder: (context, state, child) {
                 return ScaffoldWithNavBar(
