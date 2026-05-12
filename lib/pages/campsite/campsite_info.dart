@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
+import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
+import 'package:santa_clara/widgets/main_drawer.dart';
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
 import '../../widgets/section_label.dart';
@@ -20,17 +22,16 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF335C1F),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('Campsite Info', style: TextStyle(color: Colors.white)),
-      ),
+      drawer: const MainDrawer(),
+      appBar: AppBar(title: const Text("Campsite Info"), actions: const [
+          LoggedInUserAvatar(
+            userAvatarSize: UserAvatarSize.small,
+          )
+        ]),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -83,10 +84,11 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
 
             FullWidthButton(
               text: 'Add Location To Trip',
-              onPressed: () { // TODO: add logic to save location and have that info transfer over to next screen
-                GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name);
+              onPressed: () { 
+                // TODO: add logic to save location and have that info transfer over to next screen
+                GoRouter.of(context).goNamed(MyRoutes.planTrip.name);
               },
-              color: const Color(0xFF558B2F),
+              color: colorScheme.primary,
             ),
             const SizedBox(height: 40),
           ],

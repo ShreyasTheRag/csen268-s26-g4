@@ -6,6 +6,8 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:santa_clara/blocs/trip.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
+import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
+import 'package:santa_clara/widgets/main_drawer.dart';
 
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
@@ -15,27 +17,23 @@ import '../../widgets/section_label.dart';
 
 class PlanTripPage extends StatelessWidget {
   const PlanTripPage({super.key});
-@override
+
+  @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return BlocProvider(
       create: (context) => TripBloc(),
       child: Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF335C1F),
-          elevation: 0,
-          leading: const Icon(Icons.menu, color: Colors.white),
-          title: const Text('Plan a Trip', style: TextStyle(color: Colors.white)),
-          actions: const [
-            Padding(
-              padding: EdgeInsets.only(right: 16.0),
-              child: Icon(Icons.account_circle, color: Colors.white, size: 30),
+        backgroundColor: colorScheme.surface,
+        drawer: const MainDrawer(),
+        appBar: AppBar(title: const Text("Campsite Info"), actions: const [
+            LoggedInUserAvatar(
+              userAvatarSize: UserAvatarSize.small,
             )
-          ],
-        ),
+          ]),
         body: BlocBuilder<TripBloc, TripState>(
           builder: (context, state) {
-            // Pull the trip object from your state
             final trip = state.trip;
 
             return SingleChildScrollView(
@@ -44,8 +42,7 @@ class PlanTripPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SectionLabel('SELECT A TRIP'),
-                  // Pass the name from the state
-                  _buildTripDropdown(trip.name), 
+                  _buildTripDropdown(context, trip.name), 
                   const SizedBox(height: 20),
 
                   const SectionLabel('LOCATION PLANNED'),
@@ -63,22 +60,11 @@ class PlanTripPage extends StatelessWidget {
                   SizedBox(
                     height: 300, 
                     child: CustomGoogleMap(
-                      locations: const [
-                        LatLng(37.3496, -121.9390), 
-                      ],
+                      locations: const [LatLng(37.3496, -121.9390)],
                       extraMarkers: {
-                        const Marker(
-                          markerId: MarkerId('scu'),
-                          position: LatLng(37.3496, -121.9390),
-                        ),
-                        const Marker(
-                          markerId: MarkerId('camp1'),
-                          position: LatLng(37.3510, -121.9410),
-                        ),
-                        const Marker(
-                          markerId: MarkerId('camp2'),
-                          position: LatLng(37.3480, -121.9350),
-                        ),
+                        const Marker(markerId: MarkerId('scu'), position: LatLng(37.3496, -121.9390)),
+                        const Marker(markerId: MarkerId('camp1'), position: LatLng(37.3510, -121.9410)),
+                        const Marker(markerId: MarkerId('camp2'), position: LatLng(37.3480, -121.9350)),
                       },
                     ),
                   ),
@@ -86,13 +72,12 @@ class PlanTripPage extends StatelessWidget {
                   FullWidthButton(
                     text: 'Add Location',
                     onPressed: () {
-                      GoRouter.of(context).goNamed(IndexedRoutes.routes[5].name);
+                      GoRouter.of(context).goNamed(MyRoutes.campsiteSelector.name);
                     },
-                    color: const Color(0xFF558B2F),
+                    color: colorScheme.primary,
                   ),
                   const SizedBox(height: 20),
 
-                  // Use real dates from the state
                   _buildDatePicker(context, 'START DATE', trip.startDate, true),
                   _buildDatePicker(context, 'END DATE', trip.endDate, false),
                   const SizedBox(height: 20),
@@ -102,14 +87,14 @@ class PlanTripPage extends StatelessWidget {
                     height: 100,
                     itemCount: 10,
                     itemBuilder: (context, index) => const RemovableImageCard(
-                      imageAsset: 'assets/car.png', // TODO: update for different images
+                      imageAsset: 'assets/car.png',
                     ),
                   ),
                   const SizedBox(height: 12),
                   FullWidthButton(
                     text: 'Add Photo',
                     onPressed: () {},
-                    color: const Color(0xFF558B2F),
+                    color: colorScheme.primary, 
                   ),
                   const SizedBox(height: 20),
 
@@ -125,16 +110,16 @@ class PlanTripPage extends StatelessWidget {
                   FullWidthButton(
                     text: 'Add Supply',
                     onPressed: () {},
-                    color: const Color(0xFF558B2F),
+                    color: colorScheme.primary,
                   ),
                   const SizedBox(height: 20),
 
                   const SectionLabel('TRIP NOTES'),
-                  _buildNotesBox(trip.notes), 
+                  _buildNotesBox(context, trip.notes), 
                   const SizedBox(height: 20),
 
                   const SectionLabel('FRIENDS'),
-                  _buildFriendsList(),
+                  _buildFriendsList(context),
                   const SizedBox(height: 32),
 
                   Row(
@@ -142,10 +127,9 @@ class PlanTripPage extends StatelessWidget {
                       Expanded(
                         child: FullWidthButton(
                           text: 'Finished Trip',
-                          color: const Color(0xFF558B2F),
+                          color: colorScheme.primary,
                           onPressed: () {
-                            GoRouter.of(context).goNamed(IndexedRoutes.routes[3].name); // Go to profile pages
-                            // TODO: update database
+                            GoRouter.of(context).goNamed(MyRoutes.profile.name);
                           },
                         ),
                       ),
@@ -153,10 +137,9 @@ class PlanTripPage extends StatelessWidget {
                       Expanded(
                         child: FullWidthButton(
                           text: 'Delete Trip',
-                          color: const Color(0xFF335C1F),
+                          color: colorScheme.secondary,
                           onPressed: () {
-                            GoRouter.of(context).goNamed(IndexedRoutes.routes[3].name); // Go to profile pages
-                            // TODO: update database
+                            GoRouter.of(context).goNamed(MyRoutes.profile.name);
                           },
                         ),
                       ),
@@ -172,38 +155,37 @@ class PlanTripPage extends StatelessWidget {
     );
   }
 
-  // UI Helper methods to keep the build method clean
-  Widget _buildTripDropdown(String currentTripName) {
+Widget _buildTripDropdown(BuildContext context, String currentTripName) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade300,
+        color: Theme.of(context).colorScheme.surface, 
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), // Optional: adds a subtle border
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: currentTripName, // Use the name from BLoC state
+          value: currentTripName,
           isExpanded: true,
           items: ['Trip Name 1', 'Trip Name 2']
               .map((e) => DropdownMenuItem(value: e, child: Text(e)))
               .toList(),
-          onChanged: (val) {
-            // TODO: Dispatch Bloc event to update selected trip
-          },
+          onChanged: (val) {},
         ),
       ),
     );
   }
 
-  Widget _buildNotesBox(String initialNotes) {
+  Widget _buildNotesBox(BuildContext context, String initialNotes) {
     return Container(
       height: 120,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.grey.shade300,
+        // Changed from surfaceVariant to surface for a white background
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant), // Optional: adds a subtle border
       ),
-      // Scrollbar and SingleChildScrollView ensure notes are scrollable
       child: Scrollbar(
         child: TextField(
           controller: TextEditingController(text: initialNotes),
@@ -227,13 +209,13 @@ class PlanTripPage extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: Colors.grey.shade300,
+              color: Theme.of(context).colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.calendar_month, size: 18, color: Colors.black54),
+                Icon(Icons.calendar_month, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(width: 8),
                 Text(
                   '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}',
@@ -246,20 +228,37 @@ class PlanTripPage extends StatelessWidget {
     );
   }
 
-
-  Widget _buildFriendsList() {
+  Widget _buildFriendsList(BuildContext context) {
     return Row(
       children: [
-        ...List.generate(5, (index) => const Padding(
-          padding: EdgeInsets.only(right: 8.0),
-          child: Icon(Icons.account_circle, size: 36),
+        ...List.generate(5, (index) => Padding( // TODO: get friends from trip instead of hardcoding 5
+          padding: const EdgeInsets.only(right: 8.0),
+          child: IconButton(
+            icon: const Icon(Icons.account_circle, size: 36),
+            onPressed: () {
+              // TODO: select specific friend
+              GoRouter.of(context).goNamed(MyRoutes.profile.name);
+            },
+          ),
         )),
-        Icon(Icons.add_circle, color: Colors.grey.shade300, size: 36),
+        
+        IconButton(
+          icon: Icon(
+            Icons.add_circle, 
+            color: Theme.of(context).focusColor, 
+            size: 36
+          ),
+          onPressed: () {
+            // TODO: go to version of page with selection options isntead
+            GoRouter.of(context).goNamed(MyRoutes.profileFriends.name);
+          },
+        ),
       ],
     );
   }
 
   void _selectDate(BuildContext context, bool isStart) async {
+    final colorScheme = Theme.of(context).colorScheme;
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
@@ -268,18 +267,16 @@ class PlanTripPage extends StatelessWidget {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF558B2F),
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
+            colorScheme: colorScheme.copyWith(
+              primary: colorScheme.secondary, // Uses light green for picker primary
+              onPrimary: colorScheme.onSecondary,
+              onSurface: colorScheme.onSurface,
             ),
           ),
           child: child!,
         );
       },
     );
-    if (picked != null) {
-      // TODO
-    }
+    if (picked != null) {}
   }
 }

@@ -5,6 +5,8 @@ import 'package:pointer_interceptor/pointer_interceptor.dart';
 import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
+import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
+import 'package:santa_clara/widgets/main_drawer.dart';
 
 class CampsiteLocatorPage extends StatefulWidget {
   const CampsiteLocatorPage({super.key});
@@ -27,17 +29,18 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     final displayedCampsites = showOnlyStarred 
         ? _allCampsites.where((c) => c.isStarred).toList() 
         : _allCampsites;
 
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF386625),
-        title: const Text('Campsite Locator', style: TextStyle(color: Colors.white)),
-        leading: const Icon(Icons.menu, color: Colors.white),
-        actions: const [Padding(padding: EdgeInsets.only(right: 16), child: Icon(Icons.account_circle, color: Colors.white))],
-      ),
+      drawer: const MainDrawer(),
+      appBar: AppBar(title: const Text("Campsite Info"), actions: const [
+          LoggedInUserAvatar(
+            userAvatarSize: UserAvatarSize.small,
+          )
+        ]),
       body: Stack(
         children: [
           // MAP LAYER
@@ -59,7 +62,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                 children: [
                   _buildSearchBar(),
                   const SizedBox(height: 12),
-                  _buildFilterToggle(),
+                  _buildFilterToggle(colorScheme),
                 ],
               ),
             ),
@@ -75,7 +78,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
             ),
         ],
       ),
-      bottomNavigationBar: _buildBottomAction(),
+      bottomNavigationBar: _buildBottomAction(colorScheme),
     );
   }
 
@@ -92,22 +95,22 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
     );
   }
 
-  Widget _buildFilterToggle() {
+  Widget _buildFilterToggle(dynamic colorScheme) {
     return Row(
       children: [
-        _toggleButton('All', !showOnlyStarred, () => setState(() => showOnlyStarred = false)),
-        _toggleButton('Starred', showOnlyStarred, () => setState(() => showOnlyStarred = true)),
+        _toggleButton('All', !showOnlyStarred, () => setState(() => showOnlyStarred = false), colorScheme),
+        _toggleButton('Starred', showOnlyStarred, () => setState(() => showOnlyStarred = true), colorScheme),
       ],
     );
   }
 
-  Widget _toggleButton(String text, bool active, VoidCallback onTap) {
+  Widget _toggleButton(String text, bool active, VoidCallback onTap, dynamic colorScheme) {
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
         decoration: BoxDecoration(
-          color: active ? const Color(0xFF558B2F) : Colors.white,
+          color: active ? colorScheme.primary : Colors.white,
           border: Border.all(color: Colors.grey.shade300),
         ),
         child: Text(text, style: TextStyle(color: active ? Colors.white : Colors.black, fontWeight: FontWeight.bold)),
@@ -169,7 +172,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                             const SizedBox(width: 8),
                             ElevatedButton(
                               onPressed: () {
-                                GoRouter.of(context).goNamed(IndexedRoutes.routes[6].name); // Go to campsite info pages
+                                GoRouter.of(context).goNamed(MyRoutes.campsiteInfo.name);
                                 // TODO: pass selected location information to next page
                               },
                               style: ElevatedButton.styleFrom(
@@ -179,7 +182,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                               ),
                               child: const Text('Learn More'),
-                                                          ),
+                            ),
                           ],
                         )
                       ],
@@ -206,17 +209,17 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
     );
   }
 
-  Widget _buildBottomAction() {
+  Widget _buildBottomAction(dynamic colorScheme) {
     return Container(
       padding: const EdgeInsets.all(16),
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF558B2F), 
+          backgroundColor: colorScheme.primary, 
           minimumSize: const Size(double.infinity, 50),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: () {
-          GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name); // Go to trip page
+          GoRouter.of(context).goNamed(MyRoutes.planTrip.name);
         },
         child: const Text('View Trip', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
       ),
