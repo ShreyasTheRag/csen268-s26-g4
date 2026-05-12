@@ -27,7 +27,7 @@ class PlanTripPage extends StatelessWidget {
       child: Scaffold(
         backgroundColor: colorScheme.surface,
         drawer: const MainDrawer(),
-        appBar: AppBar(title: const Text("Campsite Info"), actions: const [
+        appBar: AppBar(title: const Text("Plan a Trip"), actions: const [
             LoggedInUserAvatar(
               userAvatarSize: UserAvatarSize.small,
             )
