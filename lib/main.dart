@@ -49,8 +49,6 @@ class AppBlocObserver extends BlocObserver {
 class MyApp extends StatelessWidget {
   MyApp({super.key});
 
-  final AuthenticationBloc authenticationBloc = AuthenticationBloc();
-
   // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
@@ -71,14 +69,10 @@ class MyApp extends StatelessWidget {
       child: MultiBlocProvider(
         providers: [
           BlocProvider(
-            create: (context) {
-              return authenticationBloc
-                ..add(AuthenticationInitializeEvent(
-                    authenticationRepository:
-                        RepositoryProvider.of<AuthenticationRepository>(
-                            context)));
-              // return authenticationBloc..add(AuthenticationInitializeEvent());
-            },
+            create: (context) => AuthenticationBloc()
+              ..add(AuthenticationInitializeEvent(
+                authenticationRepository: context.read<AuthenticationRepository>(),
+              )),
           ),
           BlocProvider(
             create: (context) => ThemeCubit(),
@@ -96,7 +90,7 @@ class MyApp extends StatelessWidget {
                 highContrastTheme: theme.lightHighContrast(),
                 highContrastDarkTheme: theme.darkHighContrast(),
                 themeMode: state.themeMode,
-                routerConfig: router(authenticationBloc),
+                routerConfig: router(context.read<AuthenticationBloc>()),
               );
             },
           ),
