@@ -3,12 +3,14 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 
 class CustomGoogleMap extends StatefulWidget {
-  final List<LatLng> locations; 
+  final List<LatLng> locations;
+  final Set<Marker> extraMarkers;
   final double initialZoom;
 
   const CustomGoogleMap({
     super.key,
     required this.locations,
+    this.extraMarkers = const {},
     this.initialZoom = 14.0,
   });
 
@@ -44,27 +46,18 @@ class _CustomGoogleMapState extends State<CustomGoogleMap> {
 
   @override
   Widget build(BuildContext context) {
-    final Set<Marker> markers = widget.locations.asMap().entries.map((entry) {
-      int idx = entry.key;
-      LatLng position = entry.value;
-
-      return Marker(
-        markerId: MarkerId('marker_$idx'),
-        position: position,
-        icon: BitmapDescriptor.defaultMarker,
-      );
-    }).toSet();
-
     return GoogleMap(
       onMapCreated: (controller) => mapController = controller,
-      // Focus the camera on the first item in the list
       initialCameraPosition: CameraPosition(
+        // Dynamic: Target the first location in the list provided by the caller
         target: widget.locations.isNotEmpty 
             ? widget.locations.first 
             : const LatLng(0, 0),
         zoom: widget.initialZoom,
       ),
-      markers: markers,
+      // Only display markers explicitly passed via extraMarkers 
+      // This prevents "dumb" markers from blocking "smart" interactive markers
+      markers: widget.extraMarkers,
       myLocationEnabled: true,
       myLocationButtonEnabled: true,
     );
