@@ -31,6 +31,22 @@
 
   <title>santa_clara</title>
   <link rel="manifest" href="manifest.json">
+
+  <script>
+  window.addEventListener('load', function(ev) {
+    // TODO: read from secrets.json
+    var mapsKey = "AIzaSyBQOQflaNzuvSSDwhVfYXf16rXcBdagPfw";
+    console.log("Web JS Key Value:", mapsKey);
+    
+    if (mapsKey.indexOf("{") !== -1) {
+       console.warn("Maps API Key placeholder was not replaced. Ensure you are running with --dart-define-from-file");
+    }
+
+    var script = document.createElement('script');
+    script.src = 'https://maps.googleapis.com/maps/api/js?key=' + mapsKey;
+    document.head.appendChild(script);
+  });
+</script>
 </head>
 <body>
   <script src="flutter_bootstrap.js" async></script>

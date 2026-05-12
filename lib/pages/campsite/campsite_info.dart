@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:santa_clara/widgets/google_maps.dart';
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
 import '../../widgets/section_label.dart';
@@ -12,6 +14,7 @@ class CampsiteInfoPage extends StatefulWidget {
 
 class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
   bool isFavorited = false;
+  // TODO: update campsite info based on which location was selected
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +58,14 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
             const SizedBox(height: 20),
 
             const SectionLabel('LOCATION'),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: Image.asset(
-                'assets/car.png', // Using car.png as requested for the map placeholder
-                height: 180,
-                width: double.infinity,
-                fit: BoxFit.cover,
+            const SizedBox(
+              height: 300, 
+              child: CustomGoogleMap(
+                locations: [
+                  LatLng(37.3496, -121.9390), 
+                  LatLng(37.3510, -121.9410), 
+                  LatLng(37.3480, -121.9350), 
+                ],
               ),
             ),
             const SizedBox(height: 20),
