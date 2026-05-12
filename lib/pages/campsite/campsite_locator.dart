@@ -36,7 +36,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
 
     return Scaffold(
       drawer: const MainDrawer(),
-      appBar: AppBar(title: const Text("Campsite Info"), actions: const [
+      appBar: AppBar(title: const Text("Campsite Locator"), actions: const [
           LoggedInUserAvatar(
             userAvatarSize: UserAvatarSize.small,
           )
