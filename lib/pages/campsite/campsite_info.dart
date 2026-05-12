@@ -58,14 +58,16 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
             const SizedBox(height: 20),
 
             const SectionLabel('LOCATION'),
-            const SizedBox(
+            SizedBox( // Removed const from here
               height: 300, 
               child: CustomGoogleMap(
-                locations: [
-                  LatLng(37.3496, -121.9390), 
-                  LatLng(37.3510, -121.9410), 
-                  LatLng(37.3480, -121.9350), 
-                ],
+                locations: const [LatLng(37.3496, -121.9390)],
+                extraMarkers: {
+                  const Marker(
+                    markerId: MarkerId('scu'),
+                    position: LatLng(37.3496, -121.9390),
+                  ),
+                },
               ),
             ),
             const SizedBox(height: 20),

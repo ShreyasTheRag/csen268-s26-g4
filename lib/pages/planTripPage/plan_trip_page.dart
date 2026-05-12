@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import 'package:santa_clara/blocs/trip.dart';
+import 'package:santa_clara/widgets/google_maps.dart';
 
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
@@ -56,15 +58,26 @@ class PlanTripPage extends StatelessWidget {
                   const SizedBox(height: 20),
 
                   const SectionLabel('ROUTE'),
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      image: const DecorationImage(
-                        image: AssetImage('car.png'),
-                        fit: BoxFit.cover,
-                      ),
+                  SizedBox(
+                    height: 300, 
+                    child: CustomGoogleMap(
+                      locations: const [
+                        LatLng(37.3496, -121.9390), 
+                      ],
+                      extraMarkers: {
+                        const Marker(
+                          markerId: MarkerId('scu'),
+                          position: LatLng(37.3496, -121.9390),
+                        ),
+                        const Marker(
+                          markerId: MarkerId('camp1'),
+                          position: LatLng(37.3510, -121.9410),
+                        ),
+                        const Marker(
+                          markerId: MarkerId('camp2'),
+                          position: LatLng(37.3480, -121.9350),
+                        ),
+                      },
                     ),
                   ),
                   const SizedBox(height: 12),
