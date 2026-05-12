@@ -5,7 +5,6 @@ import 'package:logging/logging.dart';
 import 'package:santa_clara/pages/yourVehicle/your_vehicle_page.dart';
 
 import '../pages/images/images_page.dart';
-// import 'package:go_router/go_router.dart';
 
 class MyRoutes {
   static MyRoute home = MyRoute(name: 'home', path: '/');
@@ -16,6 +15,8 @@ class MyRoutes {
   static MyRoute images = MyRoute(name: 'images', path: 'images');
   static MyRoute articles = MyRoute(name: 'articles', path: 'articles');
   static MyRoute chat = MyRoute(name: 'chat', path: 'chat');
+  static MyRoute profileFriends =
+      MyRoute(name: 'profileFriends', path: 'friends');
   static MyRoute profile = MyRoute(name: 'profile', path: 'profile');
 }
 
