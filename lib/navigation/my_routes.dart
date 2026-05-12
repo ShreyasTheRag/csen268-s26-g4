@@ -1,5 +1,4 @@
 import 'package:santa_clara/pages/articles/articles_page.dart';
-import 'package:santa_clara/pages/generic/generic_page.dart';
 import 'package:santa_clara/pages/profile/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
