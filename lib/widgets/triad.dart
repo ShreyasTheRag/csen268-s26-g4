@@ -3,9 +3,18 @@ import 'package:flutter/material.dart';
 class Triad extends StatelessWidget {
   final List<String?> keys, values;
   final double width, height;
+  final VoidCallback? onFirstTap, onSecondTap, onThirdTap;
   static const TextStyle _bold = TextStyle(fontWeight: FontWeight.bold);
 
-  const Triad({required this.keys, required this.values, required this.width, required this.height, super.key});
+  const Triad(
+      {required this.keys,
+      required this.values,
+      required this.width,
+      required this.height,
+      this.onFirstTap,
+      this.onSecondTap,
+      this.onThirdTap,
+      super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -13,13 +22,13 @@ class Triad extends StatelessWidget {
       SizedBox(
         width: width,
         height: height,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(keys[0]!, style: _bold),
-            Text(values[0]!)
-          ],
+        child: InkWell(
+          onTap: onFirstTap,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [Text(keys[0]!, style: _bold), Text(values[0]!)],
+          ),
         )
       ),
       Container(
@@ -30,13 +39,13 @@ class Triad extends StatelessWidget {
       SizedBox(
         width: width,
         height: height,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(keys[1]!, style: _bold),
-            Text(values[1]!)
-          ],
+        child: InkWell(
+          onTap: onSecondTap,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [Text(keys[1]!, style: _bold), Text(values[1]!)],
+          ),
         )
       ),
       Container(
@@ -47,13 +56,13 @@ class Triad extends StatelessWidget {
       SizedBox(
         width: width,
         height: height,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Text(keys[2]!, style: _bold),
-            Text(values[2]!)
-          ],
+        child: InkWell(
+          onTap: onThirdTap,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [Text(keys[2]!, style: _bold), Text(values[2]!)],
+          ),
         )
       ),
     ];

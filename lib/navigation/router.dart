@@ -1,5 +1,7 @@
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
 import 'package:santa_clara/pages/home/home_page.dart';
+import 'package:santa_clara/pages/friends/friends_page.dart';
+import 'package:santa_clara/pages/friends/friend_profile_page.dart';
 import 'package:santa_clara/pages/signIn/sign_in_page.dart';
 import 'package:santa_clara/pages/verifyEmail/verify_email_page.dart';
 import 'package:santa_clara/utilities/stream_to_listenable.dart';
@@ -22,12 +24,6 @@ List<GoRoute> shellRoutes = List.generate(IndexedRoutes.routes.length, (index) {
   );
 });
 
-extension on GoRouterState {
-  String get inf =>
-      'name: $name fullPath: $fullPath matched: $matchedLocation \n'
-      '         path: $path topRoute: ${topRoute?.path} ${uri.path}';
-}
-
 GoRouter router(AuthenticationBloc authenticationBloc) {
   final GlobalKey<NavigatorState> rootNavigatorKey =
       GlobalKey<NavigatorState>(debugLabel: "Root");
@@ -35,7 +31,6 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
       GlobalKey<NavigatorState>(debugLabel: "Shell");
 
   return GoRouter(
-      //observers: [MyNavObserver()],
       navigatorKey: rootNavigatorKey,
       initialLocation: "/images",
       refreshListenable: StreamToListenable([authenticationBloc.stream]),
@@ -64,7 +59,6 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
           builder: (context, state) => const HomePage(),
           routes: [
             ShellRoute(
-              // observers: [MyNavObserver()],
               navigatorKey: shellNavigatorKey,
               routes: [
                 GoRoute(
@@ -106,6 +100,36 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                   builder: (context, state) {
                     return IndexedRoutes.routes[3].child ?? Container();
                   },
+                  routes: [
+                    GoRoute(
+                      name: MyRoutes.profileFriends.name,
+                      path: MyRoutes.profileFriends.path,
+                      builder: (context, state) => const FriendsPage(),
+                      routes: [
+                        GoRoute(
+                          name: "friendProfile",
+                          path: "profile/:friendId",
+                          builder: (context, state) {
+                            final String friendId =
+                                state.pathParameters["friendId"] ?? "";
+                            final String name =
+                                state.uri.queryParameters["name"] ?? "Friend";
+                            final String handle =
+                                state.uri.queryParameters["handle"] ??
+                                    "@friend";
+                            final String avatarUrl =
+                                state.uri.queryParameters["avatarUrl"] ?? "";
+                            return FriendProfilePage(
+                              friendId: friendId,
+                              name: name,
+                              handle: handle,
+                              avatarUrl: avatarUrl,
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
                 )
               ],
               builder: (context, state, child) {

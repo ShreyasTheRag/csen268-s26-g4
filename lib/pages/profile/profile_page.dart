@@ -1,3 +1,5 @@
+import 'package:go_router/go_router.dart';
+import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 import 'package:flutter/material.dart';
@@ -15,23 +17,31 @@ class ProfilePage extends StatelessWidget {
             userAvatarSize: UserAvatarSize.small,
           )
         ]),
-        body: const Padding(
-          padding: EdgeInsetsGeometry.all(1.0),
+        body: Padding(
+          padding: const EdgeInsets.all(1.0),
           child: SingleChildScrollView(
             child: Column(
               spacing: 10.0,
               children: [
-                SizedBox(
+                const SizedBox(
                   width: double.infinity,
                   height: 150,
                   child: LoggedInUserAvatar(
                     userAvatarSize: UserAvatarSize.large,
                   ),
                 ),
-                Triad(keys: ["Trips", "Friends", "Locations"], values: ['0', '1', '2'], width: 100, height: 60),
-                _ListOfPersonalDetails(type: "Trips"),
-                _ListOfPersonalDetails(type: "Locations Visited"),
-                _ListOfPersonalDetails(type: "Equipement Willing To Share")
+                Triad(
+                  keys: const ["Trips", "Friends", "Locations"],
+                  values: const ['0', '1', '2'],
+                  width: 100,
+                  height: 60,
+                  onSecondTap: () =>
+                      GoRouter.of(context).goNamed(MyRoutes.profileFriends.name),
+                ),
+                const _ListOfPersonalDetails(type: "Trips"),
+                const _ListOfPersonalDetails(type: "Locations Visited"),
+                const _ListOfPersonalDetails(
+                    type: "Equipement Willing To Share")
               ]
             )
           )
