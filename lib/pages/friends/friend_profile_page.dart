@@ -57,8 +57,6 @@ class FriendProfilePage extends StatelessWidget {
             const Triad(
               keys: ["Trips", "Friends", "Locations"],
               values: ['4', '12', '9'],
-              width: 100,
-              height: 60,
             ),
             const _ListOfPersonalDetails(type: "Trips"),
             const _ListOfPersonalDetails(type: "Locations Visited"),

@@ -33,8 +33,6 @@ class ProfilePage extends StatelessWidget {
                 Triad(
                   keys: const ["Trips", "Friends", "Locations"],
                   values: const ['0', '1', '2'],
-                  width: 100,
-                  height: 60,
                   onSecondTap: () =>
                       GoRouter.of(context).goNamed(MyRoutes.profileFriends.name),
                 ),

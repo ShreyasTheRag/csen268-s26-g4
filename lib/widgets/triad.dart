@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 
 class Triad extends StatelessWidget {
   final List<String?> keys, values;
-  final double width, height;
   final VoidCallback? onFirstTap, onSecondTap, onThirdTap;
-  static const TextStyle _bold = TextStyle(fontWeight: FontWeight.bold);
 
   const Triad(
       {required this.keys,
       required this.values,
-      required this.width,
-      required this.height,
       this.onFirstTap,
       this.onSecondTap,
       this.onThirdTap,
@@ -18,64 +14,39 @@ class Triad extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    List<Widget> childrenOfRow = [
-      SizedBox(
-        width: width,
-        height: height,
-        child: InkWell(
-          onTap: onFirstTap,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [Text(keys[0]!, style: _bold), Text(values[0]!)],
-          ),
-        )
-      ),
-      Container(
-        width: 2,
-        height: height - 10.0,
-        color: Theme.of(context).colorScheme.primary
-      ),
-      SizedBox(
-        width: width,
-        height: height,
-        child: InkWell(
-          onTap: onSecondTap,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [Text(keys[1]!, style: _bold), Text(values[1]!)],
-          ),
-        )
-      ),
-      Container(
-        width: 2,
-        height: height - 10.0,
-        color: Theme.of(context).colorScheme.primary
-      ),
-      SizedBox(
-        width: width,
-        height: height,
-        child: InkWell(
-          onTap: onThirdTap,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [Text(keys[2]!, style: _bold), Text(values[2]!)],
-          ),
-        )
-      ),
-    ];
     return Container(
-      width: (3.5 * width) + 4,
-      height: height,
-      color: Theme.of(context).colorScheme.primaryContainer,
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9), // Light green background
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        spacing: 10.0,
-        children: childrenOfRow
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          _buildStatItem(keys[0]!, values[0]!, onFirstTap),
+          _buildVerticalDivider(),
+          _buildStatItem(keys[1]!, values[1]!, onSecondTap),
+          _buildVerticalDivider(),
+          _buildStatItem(keys[2]!, values[2]!, onThirdTap),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, VoidCallback? action) {
+    return InkWell(
+      onTap: action,
+      child: Column(
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black54)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
+        ],
       )
     );
+  }
+
+  Widget _buildVerticalDivider() {
+    return Container(height: 30, width: 1, color: Colors.black26);
   }
 }
