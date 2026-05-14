@@ -25,8 +25,6 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return Scaffold(
       backgroundColor: Colors.white,
       drawer: const MainDrawer(),
