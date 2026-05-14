@@ -6,10 +6,10 @@ import 'package:santa_clara/widgets/add_things_button.dart';
 import 'package:santa_clara/widgets/body_text.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
 import 'package:santa_clara/widgets/hero_section.dart';
+import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
+import 'package:santa_clara/widgets/main_drawer.dart';
 import 'package:santa_clara/widgets/photo_gallery.dart';
 import 'package:santa_clara/widgets/triad.dart';
-import '../../widgets/full_width_button.dart';
-import '../../widgets/horizontal_scroll_list.dart';
 import '../../widgets/section_label.dart';
 
 class CampsiteInfoPage extends StatefulWidget {
@@ -25,17 +25,16 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF335C1F),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: const Text('Campsite Info', style: TextStyle(color: Colors.white)),
-      ),
+      drawer: const MainDrawer(),
+      appBar: AppBar(title: const Text("Campsite Info"), actions: const [
+          LoggedInUserAvatar(
+            userAvatarSize: UserAvatarSize.small,
+          )
+        ]),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(

@@ -35,7 +35,7 @@ class MainDrawer extends StatelessWidget {
                 icon: const Icon(Icons.location_on),
                 label: const Text("Campsite Locator"),
                 onPressed: () {
-                  GoRouter.of(context).goNamed(IndexedRoutes.routes[2].name);
+                  GoRouter.of(context).goNamed(MyRoutes.campsiteSelector.name);
                 }),
             TextButton.icon(
                 icon: const Icon(Icons.directions_car),
@@ -45,7 +45,7 @@ class MainDrawer extends StatelessWidget {
                 icon: const Icon(Icons.assistant_navigation),
                 label: const Text("Plan a Trip"),
                 onPressed: () {
-                  GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name);
+                  GoRouter.of(context).goNamed(MyRoutes.planTrip.name);
                 }),
             const EmailVerificationButton(),
             TextButton.icon(
