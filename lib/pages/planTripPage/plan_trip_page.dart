@@ -93,7 +93,9 @@ class PlanTripPage extends StatelessWidget {
                   const SizedBox(height: 12),
                   FullWidthButton(
                     text: 'Add Photo',
-                    onPressed: () {},
+                    onPressed: () {
+                      GoRouter.of(context).pushNamed(MyRoutes.takePicture.name);
+                    },
                     color: colorScheme.primary, 
                   ),
                   const SizedBox(height: 20),

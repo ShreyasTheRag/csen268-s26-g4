@@ -22,6 +22,7 @@ class MyRoutes {
       MyRoute(name: 'profileFriends', path: 'friends');
   static MyRoute profile = MyRoute(name: 'profile', path: 'profile');
   static MyRoute planTrip = MyRoute(name: 'Plan a Trip', path: 'planTrip');
+  static MyRoute takePicture = MyRoute(name: 'takePicture', path: 'takePicture');
   static MyRoute campsiteSelector = MyRoute(name: 'Campsite Selector', path: 'campsiteSelector');
   static MyRoute campsiteInfo = MyRoute(name: 'Campsite Info', path: 'CampsiteInfoPage');
 }

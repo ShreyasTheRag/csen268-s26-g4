@@ -15,14 +15,19 @@ class Trip {
     this.notes = '',
   });
 
-  Trip copyWith({DateTime? start, DateTime? end, String? notes}) {
+  Trip copyWith({
+    DateTime? start,
+    DateTime? end,
+    String? notes,
+    List<String>? images,
+  }) {
     return Trip(
       name: name,
       startDate: start ?? startDate,
       endDate: end ?? endDate,
       notes: notes ?? this.notes,
       locations: locations,
-      images: images,
+      images: images ?? this.images,
     );
   }
 }

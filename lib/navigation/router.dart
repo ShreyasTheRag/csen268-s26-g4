@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../pages/error/error_page.dart';
 import '../pages/images/image_detail_page.dart';
+import '../pages/planTripPage/take_picture_page.dart';
 import 'my_routes.dart';
 
 List<GoRoute> shellRoutes = List.generate(IndexedRoutes.routes.length, (index) {
@@ -137,6 +138,14 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                   builder: (context, state) {
                     return IndexedRoutes.routes[4].child ?? Container();
                   },
+                  routes: [
+                    GoRoute(
+                      parentNavigatorKey: rootNavigatorKey,
+                      name: MyRoutes.takePicture.name,
+                      path: MyRoutes.takePicture.path,
+                      builder: (context, state) => const TakePicturePage(),
+                    ),
+                  ],
                 ),
                 GoRoute(
                   name: IndexedRoutes.routes[5].name,
