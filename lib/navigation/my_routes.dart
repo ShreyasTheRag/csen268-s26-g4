@@ -53,7 +53,7 @@ class IndexedRoutes {
         path: MyRoutes.profile.path,
         label: 'Profile',
         icon: Icons.person,
-        child: const ProfilePage()),
+        child: const ProfilePage()), 
     MyRoute(
         name: MyRoutes.planTrip.name,
         path: MyRoutes.planTrip.path,

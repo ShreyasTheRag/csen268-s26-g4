@@ -10,8 +10,16 @@ enum UserAvatarSize {
 }
 
 class LoggedInUserAvatar extends StatelessWidget {
-  const LoggedInUserAvatar({super.key, required this.userAvatarSize});
   final UserAvatarSize userAvatarSize;
+  final String? imageUrl;
+  final String? userHandle;
+
+  const LoggedInUserAvatar({
+    super.key, 
+    required this.userAvatarSize,
+    this.imageUrl, // Defaults to null if not passed
+    this.userHandle
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -32,15 +40,26 @@ class LoggedInUserAvatar extends StatelessWidget {
       builder: (context, state) {
         switch (state) {
           case AuthenticationSignedInState _:
+            
+            // 2. Determine whether to show the database image or fallback widget
+            final bool hasValidImage = imageUrl != null && imageUrl!.trim().isNotEmpty;
+
             return Padding(
               padding: const EdgeInsets.all(10.0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  UserAvatarImage(
-                    user: state.user,
-                    radius: radius,
-                  ),
+                  // 3. Conditional rendering based on string validity
+                  hasValidImage
+                      ? CircleAvatar(
+                          radius: radius,
+                          backgroundImage: NetworkImage(imageUrl!),
+                          backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                        )
+                      : UserAvatarImage(
+                          user: state.user,
+                          radius: radius,
+                        ),
                   if (userAvatarSize == UserAvatarSize.large)
                     Padding(
                       padding: const EdgeInsets.only(top: 5),
@@ -48,7 +67,7 @@ class LoggedInUserAvatar extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Flexible(
-                            child: Text(state.user.email,
+                            child: Text(userHandle ?? state.user.email,
                                 maxLines: 1, overflow: TextOverflow.clip),
                           ),
                           if (state.user.emailVerified)
