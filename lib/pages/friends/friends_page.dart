@@ -1,5 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart'; // Ensure Bloc is imported
 import 'package:go_router/go_router.dart';
+import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 
@@ -29,79 +32,14 @@ class FriendsPage extends StatefulWidget {
 class _FriendsPageState extends State<FriendsPage> {
   _FriendsTab _selectedTab = _FriendsTab.viewFriends;
 
-  final List<FriendListItem> _friends = <FriendListItem>[
-    const FriendListItem(
-      id: "f1",
-      name: "John Smith",
-      handle: "@john",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "f2",
-      name: "Emily Davis",
-      handle: "@emily",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "f3",
-      name: "Michael Brown",
-      handle: "@michael",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "f4",
-      name: "Sarah Wilson",
-      handle: "@sarah",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "f5",
-      name: "David Lee",
-      handle: "@david",
-      avatarUrl: "",
-    ),
-  ];
-
+  // Static mock states for invites - TODO: update
   final List<FriendListItem> _pendingInvites = <FriendListItem>[
-    const FriendListItem(
-      id: "p1",
-      name: "Ashley Moore",
-      handle: "@ashley",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "p2",
-      name: "Chris Taylor",
-      handle: "@chris",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "p3",
-      name: "Jessica Martin",
-      handle: "@jessica",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "p4",
-      name: "Ryan Clark",
-      handle: "@ryan",
-      avatarUrl: "",
-    ),
+    const FriendListItem(id: "p1", name: "Ashley Moore", handle: "@ashley", avatarUrl: ""),
+    const FriendListItem(id: "p2", name: "Chris Taylor", handle: "@chris", avatarUrl: ""),
   ];
 
   final List<FriendListItem> _incomingInvites = <FriendListItem>[
-    const FriendListItem(
-      id: "i1",
-      name: "Amanda Lewis",
-      handle: "@amanda",
-      avatarUrl: "",
-    ),
-    const FriendListItem(
-      id: "i2",
-      name: "Brian Walker",
-      handle: "@brian",
-      avatarUrl: "",
-    ),
+    const FriendListItem(id: "i1", name: "Amanda Lewis", handle: "@amanda", avatarUrl: ""),
   ];
 
   @override
@@ -114,26 +52,99 @@ class _FriendsPageState extends State<FriendsPage> {
           LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small),
         ],
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-          _buildTabButtons(context),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _selectedTab == _FriendsTab.viewFriends
-                ? _buildViewFriendsList()
-                : _buildFindFriendsView(),
-          ),
-        ],
+      body: BlocBuilder<AuthenticationBloc, AuthenticationState>(
+        builder: (context, authState) {
+          if (authState is! AuthenticationSignedInState) {
+            return const Center(child: Text("Please sign in to view your friends."));
+          }
+
+          final String currentUserEmail = authState.user.email;
+
+          // Get the current logged-in user document by email
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            stream: FirebaseFirestore.instance
+                .collection('users')
+                .where('email', isEqualTo: currentUserEmail)
+                .snapshots(),
+            builder: (context, userSnapshot) {
+              if (userSnapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (userSnapshot.hasError || !userSnapshot.hasData || userSnapshot.data!.docs.isEmpty) {
+                return const Center(child: Text("User profile not found."));
+              }
+
+              final userData = userSnapshot.data!.docs.first.data();
+              final List friendIds = userData['friends'] ?? [];
+
+              if (friendIds.isEmpty) {
+                return _buildLayout(context, <FriendListItem>[]);
+              }
+
+              // relational lookup
+              return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .where(FieldPath.documentId, whereIn: friendIds)
+                    .snapshots(),
+                builder: (context, profilesSnapshot) {
+                  if (profilesSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final List<FriendListItem> dynamicFriendsList = [];
+
+                  if (profilesSnapshot.hasData) {
+                    for (var doc in profilesSnapshot.data!.docs) {
+                      final data = doc.data();
+                      final String? name = data['name'];
+                      final String? handle = data['handle'];
+                      final String? avatarUrl = data['profile_image'];
+
+                      // Skip records with missing parameters
+                      if (name != null && name.trim().isNotEmpty &&
+                          handle != null && handle.trim().isNotEmpty) {
+                        dynamicFriendsList.add(
+                          FriendListItem(
+                            id: doc.id,
+                            name: name,
+                            handle: handle,
+                            avatarUrl: avatarUrl ?? "",
+                          ),
+                        );
+                      }
+                    }
+                  }
+
+                  return _buildLayout(context, dynamicFriendsList);
+                },
+              );
+            },
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildLayout(BuildContext context, List<FriendListItem> friendsList) {
+    return Column(
+      children: [
+        const SizedBox(height: 16),
+        _buildTabButtons(context),
+        const SizedBox(height: 12),
+        Expanded(
+          child: _selectedTab == _FriendsTab.viewFriends
+              ? _buildViewFriendsList(friendsList)
+              : _buildFindFriendsView(),
+        ),
+      ],
     );
   }
 
   Widget _buildTabButtons(BuildContext context) {
     final Color selectedColor = Theme.of(context).colorScheme.primary;
     final Color selectedTextColor = Theme.of(context).colorScheme.onPrimary;
-    final Color unselectedColor =
-        Theme.of(context).colorScheme.surfaceContainerHighest;
+    final Color unselectedColor = Theme.of(context).colorScheme.surfaceContainerHighest;
     final Color unselectedTextColor = Theme.of(context).colorScheme.onSurface;
 
     return Padding(
@@ -145,15 +156,9 @@ class _FriendsPageState extends State<FriendsPage> {
               height: 40,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _selectedTab == _FriendsTab.viewFriends
-                      ? selectedColor
-                      : unselectedColor,
-                  foregroundColor: _selectedTab == _FriendsTab.viewFriends
-                      ? selectedTextColor
-                      : unselectedTextColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(0),
-                  ),
+                  backgroundColor: _selectedTab == _FriendsTab.viewFriends ? selectedColor : unselectedColor,
+                  foregroundColor: _selectedTab == _FriendsTab.viewFriends ? selectedTextColor : unselectedTextColor,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
                 onPressed: () {
                   setState(() => _selectedTab = _FriendsTab.viewFriends);
@@ -167,15 +172,9 @@ class _FriendsPageState extends State<FriendsPage> {
               height: 40,
               child: FilledButton(
                 style: FilledButton.styleFrom(
-                  backgroundColor: _selectedTab == _FriendsTab.findFriends
-                      ? selectedColor
-                      : unselectedColor,
-                  foregroundColor: _selectedTab == _FriendsTab.findFriends
-                      ? selectedTextColor
-                      : unselectedTextColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(0),
-                  ),
+                  backgroundColor: _selectedTab == _FriendsTab.findFriends ? selectedColor : unselectedColor,
+                  foregroundColor: _selectedTab == _FriendsTab.findFriends ? selectedTextColor : unselectedTextColor,
+                  shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
                 onPressed: () {
                   setState(() => _selectedTab = _FriendsTab.findFriends);
@@ -189,13 +188,19 @@ class _FriendsPageState extends State<FriendsPage> {
     );
   }
 
-  Widget _buildViewFriendsList() {
+  Widget _buildViewFriendsList(List<FriendListItem> friendsList) {
+    if (friendsList.isEmpty) {
+      return const Center(
+        child: Text("You haven't added any friends yet."),
+      );
+    }
+
     return ListView.builder(
-      itemCount: _friends.length,
+      itemCount: friendsList.length,
       itemBuilder: (context, index) {
         return _FriendCard(
-          friend: _friends[index],
-          onTap: () => _openFriendProfile(_friends[index]),
+          friend: friendsList[index],
+          onTap: () => _openFriendProfile(friendsList[index]),
         );
       },
     );
@@ -269,7 +274,6 @@ class _FriendsPageState extends State<FriendsPage> {
   void _acceptInvite(FriendListItem friend) {
     setState(() {
       _incomingInvites.removeWhere((invite) => invite.id == friend.id);
-      _friends.insert(0, friend);
       _selectedTab = _FriendsTab.viewFriends;
     });
     ScaffoldMessenger.of(context).showSnackBar(
@@ -326,8 +330,7 @@ class _FriendCard extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border(
             top: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1),
-            bottom:
-                BorderSide(color: Theme.of(context).colorScheme.primary, width: 1),
+            bottom: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1),
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -336,12 +339,8 @@ class _FriendCard extends StatelessWidget {
             CircleAvatar(
               radius: 30,
               backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
-              backgroundImage: friend.avatarUrl.isNotEmpty
-                  ? NetworkImage(friend.avatarUrl)
-                  : null,
-              child: friend.avatarUrl.isEmpty
-                  ? const Icon(Icons.person_outline, size: 30)
-                  : null,
+              backgroundImage: friend.avatarUrl.isNotEmpty ? NetworkImage(friend.avatarUrl) : null,
+              child: friend.avatarUrl.isEmpty ? const Icon(Icons.person_outline, size: 30) : null,
             ),
             const SizedBox(width: 18),
             Expanded(
