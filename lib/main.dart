@@ -1,7 +1,9 @@
+import 'dart:convert'; // Added for jsonDecode
 import 'package:santa_clara/theme/theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for rootBundle and PlatformException
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:flutter_web_plugins/url_strategy.dart';
@@ -12,9 +14,35 @@ import 'navigation/router.dart';
 import 'repositories/authentication/authentication_repository.dart';
 import 'theme/cubit/theme_cubit.dart';
 import 'theme/util.dart';
+import 'package:flutter/foundation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // load MAPS_API_KEY from secrets.json
+  String apiKey = "";
+  if (!kIsWeb) {
+  // iOS/Android only
+  try {
+      final secretsContent = await rootBundle.loadString('secrets.json');
+      final Map<String, dynamic> secrets = jsonDecode(secretsContent);
+      apiKey = secrets['MAPS_API_KEY'] ?? "";
+
+      if (apiKey.isNotEmpty) {
+        const MethodChannel platform = MethodChannel('com.example.app/google_maps');
+        try {
+          await platform.invokeMethod('initializeMaps', {"apiKey": apiKey});
+          debugPrint("Google Maps API Key successfully passed to iOS native.");
+        } on PlatformException catch (e) {
+          debugPrint("Failed to pass API key to native iOS: ${e.message}");
+        }
+      }
+    } catch (e) {
+      debugPrint("Failed to load secrets.json: $e");
+    }
+  }
+
+  // 3. Continue with the rest of your app configurations
   usePathUrlStrategy();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
@@ -27,7 +55,6 @@ void main() async {
 }
 
 class AppBlocObserver extends BlocObserver {
-  /// {@macro app_bloc_observer}
   const AppBlocObserver();
 
   @override
@@ -49,19 +76,11 @@ class AppBlocObserver extends BlocObserver {
 class MyApp extends StatelessWidget {
   MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
-    // final brightness = View.of(context).platformDispatcher.platformBrightness;
-
-    // Retrieves the default theme for the platform
-    //TextTheme textTheme = Theme.of(context).textTheme;
-
-    // Use with Google Fonts package to use downloadable fonts
-    TextTheme textTheme =
-        createTextTheme(context, "Roboto", "Playfair Display");
-
+    TextTheme textTheme = createTextTheme(context, "Roboto", "Playfair Display");
     MaterialTheme theme = MaterialTheme(textTheme);
+    
     return RepositoryProvider(
       create: (context) {
         return AuthenticationRepository();
