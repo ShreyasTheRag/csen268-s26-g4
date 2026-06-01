@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
@@ -42,23 +43,34 @@ class Campsite {
     );
   }
 
-  static List<Campsite> getNearbyCampsites(double lat, double lon, double radius) {
-    List<Campsite> localList = [];
-    RIDBService.fetchNearbyCampgrounds(lat, lon, radius).then((rawRIDBData) {
-      localList.addAll(rawRIDBData.map((jsonItem) {
+  static Future<List<Campsite>> getNearbyCampsites(double lat, double lon, double radius) async {
+    try {
+      // 2. Use 'await' to halt execution right here until the network data lands
+      final List<dynamic> rawRIDBData = await RIDBService.fetchNearbyCampgrounds(lat, lon, radius);
+      
+      // 3. Map the data cleanly once it arrives
+      List<Campsite> csl = rawRIDBData.map((jsonItem) {
         return Campsite.fromRIDB(jsonItem);
-      }).toList());
-    }).catchError((error) => print(error));
-    return localList;
+      }).toList();
+      
+      // 4. Now this print will show your actual campsites!
+      print("Successfully mapped ${csl.length} campsites.");
+      return csl;
+      
+    } catch (error) {
+      print("Error parsing campsites: $error");
+      return []; // Return an empty list if the database call fails
+    }
   }
 }
 
 sealed class RIDBService {
+  static const String _proxyUrl = '';
   static const String _baseUrl = 'https://ridb.recreation.gov/api/v1';
   static const String _apiKey = '68438d6e-7d20-4716-8cd2-e8830b4ee87f';
 
   static Future<List<dynamic>> fetchCampgrounds(String query) async {
-    final Uri url = Uri.parse('$_baseUrl/facilities?query=$query&state=CA&activity=CAMPING');
+    final Uri url = Uri.parse('$_proxyUrl$_baseUrl/facilities?query=$query&state=CA&activity=CAMPING');
     try {
       final response = await http.get(
         url,
@@ -79,23 +91,39 @@ sealed class RIDBService {
     }
   }
   static Future<List<dynamic>> fetchNearbyCampgrounds(double lat, double lon, double radiusInMiles) async {
-    final Uri url = Uri.parse(
-      '$_baseUrl/facilities?latitude=$lat&longitude=$lon&radius=$radiusInMiles&activity=CAMPING'
-    );
+    // 1. Build a completely clean, raw URL string with absolutely no nested quotes
+    const String targetUrl = 'https://ridb.recreation.gov/api/v1/facilities?state=CA&activity=CAMPING&limit=50';
+    
+    // 2. Wrap it cleanly in the proxy parser
+    final Uri url = Uri.parse(targetUrl);
 
-    final response = await http.get(
-      url,
-      headers: {
-        'accept': 'application/json',
-        'apikey': _apiKey,
-      },
-    );
+    print("Sending Request to: $url");
 
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> decodedData = json.decode(response.body);
-      return decodedData['RECDATA'] ?? [];
-    } else {
-      throw Exception('Failed to load nearby campgrounds');
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          'accept': 'application/json',
+          'apikey': _apiKey, // Ensure this matches your lowercase '68438d6e...' string above
+        },
+      );
+
+      print("Response Status Code: ${response.statusCode}");
+      //print("Raw Response Body: ${response.body}");
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> decodedData = json.decode(response.body);
+        final List<dynamic> results = decodedData['RECDATA'] ?? [];
+        
+        print("🚨 SUCCESS! RECDATA parsed successfully. Items found: ${results.length}");
+        return results;
+      } else {
+        print("Server returned a non-200 error code.");
+        return [];
+      }
+    } catch (e) {
+      print('Network exception occurred: $e');
+      return [];
     }
   }
 }

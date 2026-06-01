@@ -18,67 +18,77 @@ class CampsiteLocatorPage extends StatefulWidget {
 class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
   bool showOnlyStarred = false;
   Campsite? selectedCampsite;
-
-  final List<Campsite> _allCampsites = [
+  /*[
     Campsite(id: '1', name: 'Location 1', position: const LatLng(37.3496, -121.9390)),
     Campsite(id: '2', name: 'Location 2', position: const LatLng(37.3480, -121.9320)),
     Campsite(id: '3', name: 'Location 3', position: const LatLng(37.3520, -121.9420)),
     Campsite(id: '4', name: 'Location 4', position: const LatLng(37.3550, -121.9350), isStarred: true),
     Campsite(id: '5', name: 'Location 5', position: const LatLng(37.3600, -121.9300)),
-  ];
+  ]*/
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final displayedCampsites = showOnlyStarred 
-        ? _allCampsites.where((c) => c.isStarred).toList() 
-        : _allCampsites;
+    return FutureBuilder<List<Campsite>>(
+      future: Campsite.getNearbyCampsites(37.3496, -121.9390, 99.9),
+      builder: (context, snapshot) {
+        List<Campsite> fetchedCampsites = [];
+        if (snapshot.hasData) {
+          fetchedCampsites = snapshot.data!;
+        }
 
-    return Scaffold(
-      drawer: const MainDrawer(),
-      appBar: AppBar(title: const Text("Campsite Locator"), actions: const [
-          LoggedInUserAvatar(
-            userAvatarSize: UserAvatarSize.small,
-          )
-        ]),
-      body: Stack(
-        children: [
-          // MAP LAYER
-          CustomGoogleMap(
-            locations: [const LatLng(37.3496, -121.9390)], 
-            extraMarkers: displayedCampsites.map((c) => Marker(
-              markerId: MarkerId(c.id),
-              position: c.position,
-              onTap: () => setState(() => selectedCampsite = c),
-            )).toSet(),
-          ),
-
-          // SEARCH & FILTERS (Wrapped in PointerInterceptor)
-          Positioned(
-            top: 16, left: 16, right: 16,
-            child: PointerInterceptor(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _buildSearchBar(),
-                  const SizedBox(height: 12),
-                  _buildFilterToggle(colorScheme),
-                ],
+        // 2. Apply your existing favorite filter over the real async data payload
+        final displayedCampsites = showOnlyStarred 
+            ? fetchedCampsites.where((c) => c.isStarred).toList() 
+            : fetchedCampsites;
+        
+        return Scaffold(
+          drawer: const MainDrawer(),
+          appBar: AppBar(title: const Text("Campsite Locator"), actions: const [
+              LoggedInUserAvatar(
+                userAvatarSize: UserAvatarSize.small,
+              )
+            ]),
+          body: Stack(
+            children: [
+              // MAP LAYER
+              CustomGoogleMap(
+                locations: [const LatLng(37.3496, -121.9390)], 
+                extraMarkers: displayedCampsites.map((c) => Marker(
+                  markerId: MarkerId(c.id),
+                  position: c.position,
+                  onTap: () => setState(() => selectedCampsite = c),
+                )).toSet(),
               ),
-            ),
-          ),
 
-          // POPUP (Wrapped in PointerInterceptor)
-          if (selectedCampsite != null)
-            Positioned(
-              bottom: 30, left: 16, right: 16,
-              child: PointerInterceptor(
-                child: _buildCampsitePopup(selectedCampsite!),
+              // SEARCH & FILTERS (Wrapped in PointerInterceptor)
+              Positioned(
+                top: 16, left: 16, right: 16,
+                child: PointerInterceptor(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildSearchBar(),
+                      const SizedBox(height: 12),
+                      _buildFilterToggle(colorScheme),
+                    ],
+                  ),
+                ),
               ),
-            ),
-        ],
-      ),
-      bottomNavigationBar: _buildBottomAction(colorScheme),
+
+              // POPUP (Wrapped in PointerInterceptor)
+              if (selectedCampsite != null)
+                Positioned(
+                  bottom: 30, left: 16, right: 16,
+                  child: PointerInterceptor(
+                    child: _buildCampsitePopup(selectedCampsite!),
+                  ),
+                ),
+            ],
+          ),
+          bottomNavigationBar: _buildBottomAction(colorScheme),
+        );
+      }
     );
   }
 
