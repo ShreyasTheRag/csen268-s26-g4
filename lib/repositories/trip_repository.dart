@@ -18,7 +18,7 @@ class TripRepository {
     final query = await _firestore
         .collection('trips')
         .where('attendees', arrayContains: userId) // <-- This looks inside the array field directly!
-        .where('completed', isEqualTo: 0)
+        .where('completed', isEqualTo: 0 as int)
         .get();
 
     return query.docs.map((doc) => Trip.fromFirestore(doc)).toList();

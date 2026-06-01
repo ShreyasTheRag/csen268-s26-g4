@@ -4,7 +4,7 @@ class Trip {
   final String id;
   final String name;
   final List<String> attendees;
-  final int completed; // 0 for false, 1 for true based on DB image
+  final int completed;
   final DateTime startDate;
   final DateTime endDate;
   final List<String> images;
@@ -29,7 +29,7 @@ class Trip {
       id: doc.id,
       name: data['trip_name'] ?? '',
       attendees: List<String>.from(data['attendees'] ?? []),
-      completed: data['completed'] ?? 0,
+      completed: (data['completed'] as num?)?.toInt() ?? 0,
       startDate: (data['start_date'] as Timestamp).toDate(),
       endDate: (data['end_date'] as Timestamp).toDate(),
       images: List<String>.from(data['images'] ?? []),
