@@ -114,7 +114,7 @@ sealed class RIDBService {
         final Map<String, dynamic> decodedData = json.decode(response.body);
         final List<dynamic> results = decodedData['RECDATA'] ?? [];
         
-        print("🚨 SUCCESS! RECDATA parsed successfully. Items found: ${results.length}");
+        print("SUCCESS! RECDATA parsed successfully. Items found: ${results.length}");
         return results;
       } else {
         print("Server returned a non-200 error code.");
