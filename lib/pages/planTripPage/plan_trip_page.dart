@@ -74,13 +74,6 @@ class PlanTripPage extends StatelessWidget {
           );
         }
 
-        final String loggedInUserEmail = authState.user.email;
-
-        final tripBloc = BlocProvider.of<TripBloc>(context);
-        if (tripBloc.state.status == TripStatus.initial) {
-          tripBloc.add(LoadUserTrips(loggedInUserEmail));
-        }
-
         return Scaffold(
           backgroundColor: colorScheme.surface,
           drawer: const MainDrawer(),
@@ -92,9 +85,7 @@ class PlanTripPage extends StatelessWidget {
           ),
           body: BlocConsumer<TripBloc, TripState>(
             listener: (context, tripState) {
-              if (tripState.status == TripStatus.successAction) {
-                GoRouter.of(context).goNamed(MyRoutes.profile.name);
-              } else if (tripState.status == TripStatus.failure) {
+              if (tripState.status == TripStatus.failure) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text(tripState.errorMessage ?? 'An error occurred.')),
                 );
@@ -122,14 +113,18 @@ class PlanTripPage extends StatelessWidget {
                 );
               }
 
-              final trip = tripState.selectedTrip!;
+              // Safely default if selectedTrip is missing but lists exist
+              final trip = tripState.selectedTrip ?? tripState.allTrips.first;
               final friends = trip.attendees.where((id) => id != tripState.currentUserId).toList();
 
               return FutureBuilder<List<Campsite>>(
                 future: Campsite.getNearbyCampsites(),
                 builder: (context, campsiteSnapshot) {
-                  List<Campsite> matchingCampsites = [];
+                  if (campsiteSnapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
+                  List<Campsite> matchingCampsites = [];
                   if (campsiteSnapshot.hasData && campsiteSnapshot.data != null) {
                     matchingCampsites = campsiteSnapshot.data!
                         .whereType<Campsite>()
@@ -200,7 +195,7 @@ class PlanTripPage extends StatelessWidget {
                         FullWidthButton(
                           text: 'Add Location',
                           onPressed: () {
-                            GoRouter.of(context).goNamed(MyRoutes.campsiteSelector.name);
+                            GoRouter.of(context).pushNamed(MyRoutes.campsiteSelector.name);
                           },
                           color: colorScheme.primary,
                         ),
@@ -298,103 +293,31 @@ class PlanTripPage extends StatelessWidget {
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 8),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        color: Colors.grey[200],
-      ),
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(8), color: Colors.grey[200]),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            url,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(child: Icon(Icons.broken_image, color: Colors.red));
-            },
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const Center(child: CircularProgressIndicator());
-            },
-          ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: () {},
-              child: Container(
-                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
-              ),
-            ),
-          )
-        ],
-      ),
+      child: Image.network(url, fit: BoxFit.cover, errorBuilder: (c, e, s) => const Icon(Icons.broken_image)),
     );
   }
 
   Widget _buildTripDropdown(BuildContext context, TripState state) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Trip>(
-          value: state.selectedTrip,
-          isExpanded: true,
-          items: state.allTrips
-              .map((trip) => DropdownMenuItem<Trip>(
-                    value: trip,
-                    child: Text(trip.name),
-                  ))
-              .toList(),
-          onChanged: (Trip? newTrip) {
-            if (newTrip != null) {
-              BlocProvider.of<TripBloc>(context).add(SelectTrip(newTrip));
-            }
-          },
-        ),
+    final currentTrip = state.selectedTrip ?? (state.allTrips.isNotEmpty ? state.allTrips.first : null);
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<Trip>(
+        value: currentTrip,
+        isExpanded: true,
+        items: state.allTrips.map((t) => DropdownMenuItem<Trip>(value: t, child: Text(t.name))).toList(),
+        onChanged: (Trip? newTrip) {
+          if (newTrip != null) BlocProvider.of<TripBloc>(context).add(SelectTrip(newTrip));
+        },
       ),
     );
   }
 
   Widget _buildNotesBox(BuildContext context, String initialNotes) {
-    final TextEditingController controller = TextEditingController(text: initialNotes);
-    final FocusNode focusNode = FocusNode();
-
-    focusNode.addListener(() {
-      if (!focusNode.hasFocus) {
-        BlocProvider.of<TripBloc>(context).add(
-          UpdateTripNotesEvent(controller.text),
-        );
-      }
-    });
-
-    return Container(
-      height: 120,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surface,
-        borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
-      ),
-      child: Scrollbar(
-        child: TextField(
-          controller: controller,
-          focusNode: focusNode,
-          maxLines: null,
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            hintText: 'Enter trip notes here...',
-          ),
-          onEditingComplete: () {
-            focusNode.unfocus(); 
-          },
-        ),
-      ),
+    return TextField(
+      controller: TextEditingController(text: initialNotes),
+      maxLines: null,
+      decoration: const InputDecoration(hintText: 'Enter trip notes here...'),
     );
   }
 
@@ -403,77 +326,17 @@ class PlanTripPage extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SectionLabel(label),
-        GestureDetector(
-          onTap: () => _selectDate(context, isStart),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.calendar_month, size: 18, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
-                Text(
-                  '${date.month.toString().padLeft(2, '0')}/${date.day.toString().padLeft(2, '0')}/${date.year}',
-                ),
-              ],
-            ),
-          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.surfaceContainerHighest, borderRadius: BorderRadius.circular(4)),
+          child: Text('${date.month}/${date.day}/${date.year}'),
         ),
+        const SizedBox(height: 12),
       ],
     );
   }
 
   Widget _buildFriendsList(BuildContext context, List<String> friendIds) {
-    return Row(
-      children: [
-        ...friendIds.map((id) => Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: IconButton(
-                icon: const Icon(Icons.account_circle, size: 36),
-                tooltip: id,
-                onPressed: () {
-                  GoRouter.of(context).goNamed(MyRoutes.profile.name);
-                },
-              ),
-            )),
-        IconButton(
-          icon: Icon(Icons.add_circle, color: Theme.of(context).focusColor, size: 36),
-          onPressed: () {
-            GoRouter.of(context).goNamed(MyRoutes.profileFriends.name);
-          },
-        ),
-      ],
-    );
-  }
-
-  void _selectDate(BuildContext context, bool isStart) async {
-    final colorScheme = Theme.of(context).colorScheme;
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime(2024),
-      lastDate: DateTime(2030),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: colorScheme.copyWith(
-              primary: colorScheme.secondary,
-              onPrimary: colorScheme.onSecondary,
-              onSurface: colorScheme.onSurface,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      BlocProvider.of<TripBloc>(context).add(
-        UpdateTripDateEvent(date: picked, isStart: isStart),
-      );
-    }
+    return Row(children: friendIds.map((id) => const Icon(Icons.account_circle, size: 36)).toList());
   }
 }

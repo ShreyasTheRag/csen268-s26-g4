@@ -50,12 +50,6 @@ class IndexedRoutes {
         label: 'Campsite Selector',
         icon: Icons.travel_explore,
         child: const CampsiteLocatorPage()),
-    MyRoute(
-        name: MyRoutes.campsiteInfo.name,
-        path: MyRoutes.campsiteInfo.path,
-        label: 'Campsite Info',
-        icon: Icons.forest,
-        child: const CampsiteInfoPage(campsite: null)),
   ];
 
   int getIndex(String path) {

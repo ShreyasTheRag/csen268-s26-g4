@@ -51,7 +51,7 @@ class Campsite {
       // 💡 FIX: Force cast to string safely to avoid null/dynamic layout issues
       name: jsonObj['FacilityName']?.toString() ?? 'Unknown Dispersed Campsite',
       position: LatLng(lat, lng),
-      description: description,
+      description: jsonObj['FacilityDescription'],
       imgURL: imgURL,
       price: determinedPrice,
       rating: 0.0, 

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:santa_clara/models/trip_model.dart';
 import 'package:santa_clara/repositories/trip_repository.dart';
@@ -37,6 +38,18 @@ class UpdateTripNotesEvent extends TripEvent {
 class AddLocationToTripEvent extends TripEvent {
   final String locationName;
   AddLocationToTripEvent({required this.locationName});
+}
+
+class UpdateTripLocationsEvent extends TripEvent {
+  final String tripId;
+  final String locationName;
+
+  UpdateTripLocationsEvent({
+    required this.tripId,
+    required this.locationName,
+  });
+
+  List<Object?> get props => [tripId, locationName];
 }
 
 // States
@@ -218,5 +231,56 @@ class TripBloc extends Bloc<TripEvent, TripState> {
       emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
     }
   });
+
+  Future<void> _onUpdateTripLocations(
+    UpdateTripLocationsEvent event,
+    Emitter<TripState> emit,
+  ) async {
+    try {
+      // Persist the update to Firebase Firestore atomically
+      await FirebaseFirestore.instance
+          .collection('trips')
+          .doc(event.tripId)
+          .update({
+        'locations': FieldValue.arrayUnion([event.locationName]),
+      });
+
+      // explicitly cast .map to return a <Trip> object type to unlock .copyWith
+      final List<Trip> updatedTrips = state.allTrips.map<Trip>((dynamic item) {
+        final trip = item as Trip;
+        
+        if (trip.id == event.tripId) {
+          final newLocations = List<String>.from(trip.locations);
+          if (!newLocations.contains(event.locationName)) {
+            newLocations.add(event.locationName);
+          }
+          return trip.copyWith(locations: newLocations);
+        }
+        return trip;
+      }).toList();
+
+      // typpe is guaranteed as Trip now, so trip.id will resolve perfectly
+      final Trip updatedSelectedTrip = updatedTrips.firstWhere(
+        (Trip trip) => trip.id == (state.selectedTrip?.id ?? event.tripId),
+        orElse: () => updatedTrips.first,
+      );
+
+      // emit the updated state back out to listening pages
+      emit(state.copyWith(
+        status: TripStatus.successAction, 
+        allTrips: updatedTrips,
+        selectedTrip: updatedSelectedTrip,
+      ));
+      
+    } catch (e) {
+      emit(state.copyWith(
+        status: TripStatus.failure,
+        errorMessage: 'Could not append campsite location: ${e.toString()}',
+      ));
+    }
+  }
+
+  on<UpdateTripLocationsEvent>(_onUpdateTripLocations);
+
   }
 }
