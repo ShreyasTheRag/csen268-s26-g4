@@ -18,13 +18,6 @@ class CampsiteLocatorPage extends StatefulWidget {
 class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
   bool showOnlyStarred = false;
   Campsite? selectedCampsite;
-  /*[
-    Campsite(id: '1', name: 'Location 1', position: const LatLng(37.3496, -121.9390)),
-    Campsite(id: '2', name: 'Location 2', position: const LatLng(37.3480, -121.9320)),
-    Campsite(id: '3', name: 'Location 3', position: const LatLng(37.3520, -121.9420)),
-    Campsite(id: '4', name: 'Location 4', position: const LatLng(37.3550, -121.9350), isStarred: true),
-    Campsite(id: '5', name: 'Location 5', position: const LatLng(37.3600, -121.9300)),
-  ]*/
 
   @override
   Widget build(BuildContext context) {
@@ -168,22 +161,14 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                           ],
                         ),
                         const SizedBox(height: 6),
-                        const Text(
-                          'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum vel ipsum',
-                          style: TextStyle(fontSize: 13, height: 1.3),
-                          maxLines: 3,
-                        ),
                         const Spacer(),
                         Row(
                           children: [
-                            const Text('\$\$', style: TextStyle(fontSize: 18)),
                             const Spacer(),
-                            const Text('4.2(26)★'),
                             const SizedBox(width: 8),
                             ElevatedButton(
                               onPressed: () {
-                                GoRouter.of(context).goNamed(MyRoutes.campsiteInfo.name);
-                                // TODO: pass selected location information to next page
+                                GoRouter.of(context).goNamed(MyRoutes.campsiteInfo.name, extra: selectedCampsite);
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFD9D9D9),

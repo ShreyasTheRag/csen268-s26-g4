@@ -1,4 +1,6 @@
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
+import 'package:santa_clara/models/campsite.dart';
+import 'package:santa_clara/pages/campsite/campsite_info.dart';
 import 'package:santa_clara/pages/home/home_page.dart';
 import 'package:santa_clara/pages/friends/friends_page.dart';
 import 'package:santa_clara/pages/friends/friend_profile_page.dart';
@@ -11,7 +13,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../pages/error/error_page.dart';
-import '../pages/images/image_detail_page.dart';
 import '../pages/planTripPage/take_picture_page.dart';
 import 'my_routes.dart';
 
@@ -33,7 +34,7 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
 
   return GoRouter(
       navigatorKey: rootNavigatorKey,
-      initialLocation: "/images",
+      initialLocation: "/profile",
       refreshListenable: StreamToListenable([authenticationBloc.stream]),
       redirect: (context, state) {
         AuthenticationState authenticationState =
@@ -49,7 +50,7 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
           return MyRoutes.signIn.path;
         }
         if (state.fullPath?.startsWith("/signIn") ?? false) {
-          return "/images";
+          return "/profile";
         }
         return null;
       },
@@ -63,43 +64,17 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
               navigatorKey: shellNavigatorKey,
               routes: [
                 GoRoute(
-                    name: IndexedRoutes.routes[0].name,
-                    path: IndexedRoutes.routes[0].path,
-                    builder: (context, state) {
-                      return IndexedRoutes.routes[0].child ?? Container();
-                    },
-                    routes: [
-                      GoRoute(
-                        parentNavigatorKey: rootNavigatorKey,
-                        name: "imageDetail",
-                        path: "imageDetail",
-                        builder: (context, state) {
-                          String imageUrl =
-                              state.uri.queryParameters["imageUrl"] ?? "";
-
-                          return ImageDetailPage(imageUrl: imageUrl);
-                        },
-                      )
-                    ]),
+                  name: IndexedRoutes.routes[0].name,
+                  path: IndexedRoutes.routes[0].path,
+                  builder: (context, state) {
+                    return IndexedRoutes.routes[0].child ?? Container();
+                  },
+                ),
                 GoRoute(
                   name: IndexedRoutes.routes[1].name,
                   path: IndexedRoutes.routes[1].path,
                   builder: (context, state) {
                     return IndexedRoutes.routes[1].child ?? Container();
-                  },
-                ),
-                GoRoute(
-                  name: IndexedRoutes.routes[2].name,
-                  path: IndexedRoutes.routes[2].path,
-                  builder: (context, state) {
-                    return IndexedRoutes.routes[2].child ?? Container();
-                  },
-                ),
-                GoRoute(
-                  name: IndexedRoutes.routes[3].name,
-                  path: IndexedRoutes.routes[3].path,
-                  builder: (context, state) {
-                    return IndexedRoutes.routes[3].child ?? Container();
                   },
                   routes: [
                     GoRoute(
@@ -133,10 +108,10 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                   ],
                 ),
                 GoRoute(
-                  name: IndexedRoutes.routes[4].name,
-                  path: IndexedRoutes.routes[4].path,
+                  name: IndexedRoutes.routes[2].name,
+                  path: IndexedRoutes.routes[2].path,
                   builder: (context, state) {
-                    return IndexedRoutes.routes[4].child ?? Container();
+                    return IndexedRoutes.routes[2].child ?? Container();
                   },
                   routes: [
                     GoRoute(
@@ -148,17 +123,17 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                   ],
                 ),
                 GoRoute(
-                  name: IndexedRoutes.routes[5].name,
-                  path: IndexedRoutes.routes[5].path,
+                  name: IndexedRoutes.routes[3].name,
+                  path: IndexedRoutes.routes[3].path,
                   builder: (context, state) {
-                    return IndexedRoutes.routes[5].child ?? Container();
+                    return IndexedRoutes.routes[3].child ?? Container();
                   },
                 ),
                 GoRoute(
-                  name: IndexedRoutes.routes[6].name,
-                  path: IndexedRoutes.routes[6].path,
+                  name: IndexedRoutes.routes[4].name,
+                  path: IndexedRoutes.routes[4].path,
                   builder: (context, state) {
-                    return IndexedRoutes.routes[6].child ?? Container();
+                    return CampsiteInfoPage(campsite: state.extra as Campsite);
                   },
                 ),
               ],

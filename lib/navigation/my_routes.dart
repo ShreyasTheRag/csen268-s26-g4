@@ -1,4 +1,3 @@
-import 'package:santa_clara/pages/articles/articles_page.dart';
 import 'package:santa_clara/pages/campsite/campsite_info.dart';
 import 'package:santa_clara/pages/campsite/campsite_locator.dart';
 import 'package:santa_clara/pages/planTripPage/plan_trip_page.dart';
@@ -6,8 +5,6 @@ import 'package:santa_clara/pages/profile/profile_page.dart';
 import 'package:flutter/material.dart';
 import 'package:logging/logging.dart';
 import 'package:santa_clara/pages/yourVehicle/your_vehicle_page.dart';
-
-import '../pages/images/images_page.dart';
 
 class MyRoutes {
   static MyRoute home = MyRoute(name: 'home', path: '/');
@@ -28,7 +25,7 @@ class MyRoutes {
 }
 
 class IndexedRoutes {
-  static List<MyRoute> routes = [
+  static List<MyRoute> routes = [/*
     MyRoute(
       name: MyRoutes.images.name,
       path: MyRoutes.images.path,
@@ -41,12 +38,12 @@ class IndexedRoutes {
         path: MyRoutes.articles.path,
         label: 'Articles',
         icon: Icons.text_snippet,
-        child: const ArticlesPage()),
+        child: const ArticlesPage()),*/
     MyRoute(
         name: MyRoutes.chat.name,
         path: MyRoutes.chat.path,
-        label: 'Chat',
-        icon: Icons.chat,
+        label: 'Your Vehicle',
+        icon: Icons.directions_car,
         child: const YourVehiclePage()),
     MyRoute(
         name: MyRoutes.profile.name,
@@ -71,7 +68,7 @@ class IndexedRoutes {
         path: MyRoutes.campsiteInfo.path,
         label: 'Campsite Info',
         icon: Icons.forest,
-        child: const CampsiteInfoPage()),
+        child: null),
   ];
 
   int getIndex(String path) {
