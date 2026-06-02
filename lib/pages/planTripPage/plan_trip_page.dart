@@ -176,10 +176,19 @@ class PlanTripPage extends StatelessWidget {
                           HorizontalScrollList(
                             height: 100,
                             itemCount: trip.locations.length,
-                            itemBuilder: (context, index) => LocationCard(
-                              locationName: trip.locations[index],
-                              imageAsset: 'assets/car.png',
-                            ),
+                            itemBuilder: (context, index) {
+                              final String locName = trip.locations[index];
+
+                              final matches = matchingCampsites.where((campsite) => campsite.name == locName);
+
+                              final Campsite? matchingCampsite = matches.isNotEmpty ? matches.first : null;
+
+                              return LocationCard(
+                                locationName: locName,
+                                imageAsset: matchingCampsite?.imgURL ?? 'assets/car.png',
+                                imageIsWeb: matchingCampsite != null, 
+                              );
+                            },
                           ),
                         const SizedBox(height: 20),
 
