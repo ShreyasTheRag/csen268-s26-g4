@@ -33,6 +33,17 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
     return FutureBuilder<List<Campsite>>(
       future: campsiteList,
       builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return Scaffold(
+          drawer: const MainDrawer(),
+          appBar: AppBar(title: const Text("Campsite Locator"), actions: const [
+              LoggedInUserAvatar(
+                userAvatarSize: UserAvatarSize.small,
+              )
+            ]),
+          body: Container()
+          );
+        }
         if (snapshot.hasData && fetchedCampsites == null) {
           fetchedCampsites = snapshot.data!;
         }

@@ -33,13 +33,25 @@ class Campsite {
     if (jsonObj['FacilityDescription']?.toString().toLowerCase().contains('free') == true) {
       determinedPrice = 'Free';
     }
-    String _imgURL = jsonObj['MEDIA'].length == 0 ? 'assets/car.png' : jsonObj['MEDIA'][0]['URL'];
+    String imgURL = jsonObj['MEDIA'].length == 0 ? 'assets/car.png' : jsonObj['MEDIA'][0]['URL'];
+    int nests = 0;
+    String rawDescription = jsonObj['FacilityDescription'].split('');
+    String description = '';
+    for (var c in rawDescription.split('')) {
+      if (c == '<') {
+        nests += 1;
+      } else if (c == '>') {
+        nests -= 1;
+      } else if (nests == 0) {
+        description = '$description$c';
+      }
+    }
     return Campsite(
       id: jsonObj['FacilityID']?.toString() ?? '',
       name: jsonObj['FacilityName'] ?? 'Unknown Dispersed Campsite',
       position: LatLng(lat, lng),
-      description: jsonObj['FacilityDescription'],
-      imgURL: _imgURL,
+      description: description,
+      imgURL: imgURL,
       price: determinedPrice,
       // rating and reviews default to 0.0 / 0 since RIDB lacks a native review count.
       // This maps perfectly to Treksetter's internal database once users start rating them!

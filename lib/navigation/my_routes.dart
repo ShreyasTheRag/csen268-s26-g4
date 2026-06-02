@@ -25,20 +25,7 @@ class MyRoutes {
 }
 
 class IndexedRoutes {
-  static List<MyRoute> routes = [/*
-    MyRoute(
-      name: MyRoutes.images.name,
-      path: MyRoutes.images.path,
-      label: 'Images',
-      icon: Icons.image,
-      child: const ImagesPage(),
-    ),
-    MyRoute(
-        name: MyRoutes.articles.name,
-        path: MyRoutes.articles.path,
-        label: 'Articles',
-        icon: Icons.text_snippet,
-        child: const ArticlesPage()),*/
+  static List<MyRoute> routes = [
     MyRoute(
         name: MyRoutes.chat.name,
         path: MyRoutes.chat.path,
@@ -68,7 +55,7 @@ class IndexedRoutes {
         path: MyRoutes.campsiteInfo.path,
         label: 'Campsite Info',
         icon: Icons.forest,
-        child: null),
+        child: const CampsiteInfoPage(campsite: null)),
   ];
 
   int getIndex(String path) {

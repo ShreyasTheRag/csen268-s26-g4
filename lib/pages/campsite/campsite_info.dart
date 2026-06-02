@@ -14,7 +14,7 @@ import 'package:santa_clara/widgets/triad.dart';
 import '../../widgets/section_label.dart';
 
 class CampsiteInfoPage extends StatefulWidget {
-  final Campsite campsite;
+  final Campsite? campsite;
 
   const CampsiteInfoPage({super.key, required this.campsite});
 
@@ -23,7 +23,7 @@ class CampsiteInfoPage extends StatefulWidget {
 }
 
 class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
-  Campsite campsite;
+  Campsite? campsite;
   bool isFavorited = false;
   // TODO: update campsite info based on which location was selected
 
@@ -39,12 +39,13 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
             userAvatarSize: UserAvatarSize.small,
           )
         ]),
-      body: SingleChildScrollView(
+      body: campsite == null ? const Center(child: Text("No campsite selected"))
+      : SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HeroSection(title: campsite.name, imageURI: campsite.imgURL, imageIsWeb: true),
+            HeroSection(title: campsite!.name, imageURI: campsite!.imgURL, imageIsWeb: true),
             const SizedBox(height: 20),
 
             const PhotoGallery(),
@@ -52,7 +53,7 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
 
             const SectionLabel('DESCRIPTION'),
             BodyText(
-              text: campsite.description,
+              text: campsite!.description,
             ),
             const SizedBox(height: 20),
 
@@ -60,11 +61,11 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
             SizedBox( // Removed const from here
               height: 300, 
               child: CustomGoogleMap(
-                locations: [campsite.position],
+                locations: [campsite!.position],
                 extraMarkers: {
                   Marker(
-                    markerId: MarkerId(campsite.name),
-                    position: campsite.position,
+                    markerId: MarkerId(campsite!.name),
+                    position: campsite!.position,
                   ),
                 },
               ),
