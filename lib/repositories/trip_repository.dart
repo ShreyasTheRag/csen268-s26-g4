@@ -40,7 +40,7 @@ class TripRepository {
   Future<List<Trip>> fetchActiveTrips(String userId) async {
     final query = await _firestore
         .collection('trips')
-        .where('attendees', arrayContains: userId) // <-- This looks inside the array field directly!
+        .where('attendees', arrayContains: userId)
         .where('completed', isEqualTo: 0)
         .get();
 
@@ -78,6 +78,7 @@ class TripRepository {
       'images': [],
       'supplies_images': [],
       'notes': '',
+      'locations': [],
     };
 
     final docRef = await _firestore.collection('trips').add(newTripData);
@@ -92,6 +93,7 @@ class TripRepository {
       images: [],
       suppliesImages: [],
       notes: '',
+      locations: []
     );
   }
 }

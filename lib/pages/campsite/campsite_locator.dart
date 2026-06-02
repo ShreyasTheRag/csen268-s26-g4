@@ -30,36 +30,41 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    
     return FutureBuilder<List<Campsite>>(
       future: campsiteList,
       builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+        if (snapshot.connectionState == ConnectionState.waiting || !snapshot.hasData) {
           return Scaffold(
-          drawer: const MainDrawer(),
-          appBar: AppBar(title: const Text("Campsite Locator"), actions: const [
-              LoggedInUserAvatar(
-                userAvatarSize: UserAvatarSize.small,
-              )
-            ]),
-          body: Container()
+            drawer: const MainDrawer(),
+            appBar: AppBar(
+              title: const Text("Campsite Locator"), 
+              actions: const [
+                LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small)
+              ],
+            ),
+            body: const Center(
+              child: CircularProgressIndicator(),
+            ),
           );
         }
-        if (snapshot.hasData && fetchedCampsites == null) {
+
+        if (fetchedCampsites == null) {
           fetchedCampsites = snapshot.data!;
         }
 
-        // 2. Apply your existing favorite filter over the real async data payload
         final displayedCampsites = showOnlyStarred 
             ? fetchedCampsites!.where((c) => c.isStarred).toList() 
             : fetchedCampsites!;
         
         return Scaffold(
           drawer: const MainDrawer(),
-          appBar: AppBar(title: const Text("Campsite Locator"), actions: const [
-              LoggedInUserAvatar(
-                userAvatarSize: UserAvatarSize.small,
-              )
-            ]),
+          appBar: AppBar(
+            title: const Text("Campsite Locator"), 
+            actions: const [
+              LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small),
+            ],
+          ),
           body: Stack(
             children: [
               // MAP LAYER
@@ -72,7 +77,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                 )).toSet(),
               ),
 
-              // SEARCH & FILTERS (Wrapped in PointerInterceptor)
+              // SEARCH & FILTERS 
               Positioned(
                 top: 16, left: 16, right: 16,
                 child: PointerInterceptor(
@@ -87,7 +92,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                 ),
               ),
 
-              // POPUP (Wrapped in PointerInterceptor)
+              // POPUP
               if (selectedCampsite != null)
                 Positioned(
                   bottom: 30, left: 16, right: 16,
@@ -158,7 +163,6 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // LEFT ALIGNED Header: Star then Title
                         Row(
                           children: [
                             GestureDetector(
@@ -204,7 +208,6 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                 )
               ],
             ),
-            // Close Button over the Image
             Positioned(
               top: 8, left: 8,
               child: GestureDetector(

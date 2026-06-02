@@ -1,4 +1,5 @@
 import 'dart:convert'; // Added for jsonDecode
+import 'package:santa_clara/blocs/trip_bloc.dart';
 import 'package:santa_clara/theme/theme.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_ui_auth/firebase_ui_auth.dart';
@@ -93,6 +94,9 @@ class MyApp extends StatelessWidget {
                 authenticationRepository: context.read<AuthenticationRepository>(),
               )),
           ),
+          BlocProvider(
+          create: (context) => TripBloc(), 
+        ),
           BlocProvider(
             create: (context) => ThemeCubit(),
           ),

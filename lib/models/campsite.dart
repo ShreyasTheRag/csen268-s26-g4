@@ -29,15 +29,25 @@ class Campsite {
   factory Campsite.fromRIDB(Map<String, dynamic> jsonObj) {
     double lat = (jsonObj['FacilityLatitude'] as num?)?.toDouble() ?? 0.0;
     double lng = (jsonObj['FacilityLongitude'] as num?)?.toDouble() ?? 0.0;
+    
     String determinedPrice = '\$\$';
     if (jsonObj['FacilityDescription']?.toString().toLowerCase().contains('free') == true) {
       determinedPrice = 'Free';
     }
-    String imgURL = jsonObj['MEDIA'].length == 0 ? 'assets/car.png' : jsonObj['MEDIA'][0]['URL'];
+
+    // 💡 FIX 1: Safely handle if 'MEDIA' is null or an empty list before fetching index elements
+    String imgURL = 'assets/car.png';
+    if (jsonObj['MEDIA'] != null && (jsonObj['MEDIA'] as List).isNotEmpty) {
+      imgURL = jsonObj['MEDIA'][0]['URL']?.toString() ?? 'assets/car.png';
+    }
+
+    // 💡 FIX 2: Correct clean regex-free HTML tag stripper block logic to avoid List casting mismatch
     int nests = 0;
-    String rawDescription = jsonObj['FacilityDescription'].split('');
+    String rawDescriptionText = jsonObj['FacilityDescription']?.toString() ?? 'No description provided.';
     String description = '';
-    for (var c in rawDescription.split('')) {
+    
+    for (int i = 0; i < rawDescriptionText.length; i++) {
+      String c = rawDescriptionText[i];
       if (c == '<') {
         nests += 1;
       } else if (c == '>') {
@@ -46,42 +56,38 @@ class Campsite {
         description = '$description$c';
       }
     }
+
     return Campsite(
       id: jsonObj['FacilityID']?.toString() ?? '',
-      name: jsonObj['FacilityName'] ?? 'Unknown Dispersed Campsite',
+      name: jsonObj['FacilityName']?.toString() ?? 'Unknown Dispersed Campsite',
       position: LatLng(lat, lng),
-      description: description,
+      description: description, // Pass the cleanly stripped description text here
       imgURL: imgURL,
       price: determinedPrice,
-      // rating and reviews default to 0.0 / 0 since RIDB lacks a native review count.
-      // This maps perfectly to Treksetter's internal database once users start rating them!
       rating: 0.0, 
       reviews: 0,
-      isStarred: false, // Default state when pulling fresh data from network
+      isStarred: false, 
     );
   }
 
   static Future<List<Campsite>> getNearbyCampsites() async {
     if (_nc == null) {
       try {
-        // 2. Use 'await' to halt execution right here until the network data lands
         final List<dynamic> rawRIDBData = await RIDBService.fetchNearbyCampgrounds();
         
-        // 3. Map the data cleanly once it arrives
         List<Campsite> csl = rawRIDBData.map((jsonItem) {
-          return Campsite.fromRIDB(jsonItem);
+          return Campsite.fromRIDB(jsonItem as Map<String, dynamic>);
         }).toList();
         
-        // 4. Now this print will show your actual campsites!
         print("Successfully mapped ${csl.length} campsites.");
         _nc = csl;
         
       } catch (error) {
         print("Error parsing campsites: $error");
-        _nc = []; // Return an empty list if the database call fails
+        _nc = []; 
       }
     }
-    return Future.delayed(Duration.zero, () => _nc!);
+    return _nc!;
   }
 }
 
@@ -111,11 +117,9 @@ sealed class RIDBService {
       rethrow;
     }
   }
+
   static Future<List<dynamic>> fetchNearbyCampgrounds() async {
-    // 1. Build a completely clean, raw URL string with absolutely no nested quotes
     const String targetUrl = 'https://ridb.recreation.gov/api/v1/facilities?state=CA&activity=CAMPING&limit=50';
-    
-    // 2. Wrap it cleanly in the proxy parser
     final Uri url = Uri.parse(targetUrl);
 
     print("Sending Request to: $url");
@@ -125,12 +129,11 @@ sealed class RIDBService {
         url,
         headers: {
           'accept': 'application/json',
-          'apikey': _apiKey, // Ensure this matches your lowercase '68438d6e...' string above
+          'apikey': _apiKey, 
         },
       );
 
       print("Response Status Code: ${response.statusCode}");
-      //print("Raw Response Body: ${response.body}");
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> decodedData = json.decode(response.body);

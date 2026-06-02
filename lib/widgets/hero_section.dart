@@ -67,9 +67,12 @@ class _HeroSectionState extends State<HeroSection> {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              title,
-              style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            Expanded(  
+              child: Text(
+                title,
+                style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ],
         ),
