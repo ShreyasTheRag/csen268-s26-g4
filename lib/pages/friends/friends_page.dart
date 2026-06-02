@@ -1,26 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart'; // Ensure Bloc is imported
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
+import 'package:santa_clara/repositories/friends_repository.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 
 enum _FriendsTab { viewFriends, findFriends }
-
-class FriendListItem {
-  const FriendListItem({
-    required this.id,
-    required this.name,
-    required this.handle,
-    required this.avatarUrl,
-  });
-
-  final String id;
-  final String name;
-  final String handle;
-  final String avatarUrl;
-}
 
 class FriendsPage extends StatefulWidget {
   const FriendsPage({super.key});
@@ -31,16 +18,6 @@ class FriendsPage extends StatefulWidget {
 
 class _FriendsPageState extends State<FriendsPage> {
   _FriendsTab _selectedTab = _FriendsTab.viewFriends;
-
-  // Static mock states for invites - TODO: update
-  final List<FriendListItem> _pendingInvites = <FriendListItem>[
-    const FriendListItem(id: "p1", name: "Ashley Moore", handle: "@ashley", avatarUrl: ""),
-    const FriendListItem(id: "p2", name: "Chris Taylor", handle: "@chris", avatarUrl: ""),
-  ];
-
-  final List<FriendListItem> _incomingInvites = <FriendListItem>[
-    const FriendListItem(id: "i1", name: "Amanda Lewis", handle: "@amanda", avatarUrl: ""),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -60,7 +37,7 @@ class _FriendsPageState extends State<FriendsPage> {
 
           final String currentUserEmail = authState.user.email;
 
-          // Get the current logged-in user document by email
+          // Step 1: Real-time listener for the logged-in user document
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('users')
@@ -74,49 +51,74 @@ class _FriendsPageState extends State<FriendsPage> {
                 return const Center(child: Text("User profile not found."));
               }
 
-              final userData = userSnapshot.data!.docs.first.data();
-              final List friendIds = userData['friends'] ?? [];
+              final userDoc = userSnapshot.data!.docs.first;
+              final String currentUserId = userDoc.id;
+              final Map<String, dynamic> userData = userDoc.data();
 
-              if (friendIds.isEmpty) {
-                return _buildLayout(context, <FriendListItem>[]);
-              }
+              final List<dynamic> rawFriends = userData['friends'] ?? [];
+              final List<dynamic> rawPendingInvites = userData['pending_invites'] ?? [];
 
-              // relational lookup
+              final List<String> friendIds = rawFriends.map((e) => e.toString()).toList();
+              final List<String> pendingInvites = rawPendingInvites.map((e) => e.toString()).toList();
+
+              // Step 2: Stream incoming requests (users where 'pending_invites' array contains currentUserId)
               return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
-                    .where(FieldPath.documentId, whereIn: friendIds)
+                    .where('pending_invites', arrayContains: currentUserId)
                     .snapshots(),
-                builder: (context, profilesSnapshot) {
-                  if (profilesSnapshot.connectionState == ConnectionState.waiting) {
+                builder: (context, incomingSnapshot) {
+                  if (incomingSnapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
                   }
 
-                  final List<FriendListItem> dynamicFriendsList = [];
-
-                  if (profilesSnapshot.hasData) {
-                    for (var doc in profilesSnapshot.data!.docs) {
-                      final data = doc.data();
-                      final String? name = data['name'];
-                      final String? handle = data['handle'];
-                      final String? avatarUrl = data['profile_image'];
-
-                      // Skip records with missing parameters
-                      if (name != null && name.trim().isNotEmpty &&
-                          handle != null && handle.trim().isNotEmpty) {
-                        dynamicFriendsList.add(
-                          FriendListItem(
-                            id: doc.id,
-                            name: name,
-                            handle: handle,
-                            avatarUrl: avatarUrl ?? "",
-                          ),
-                        );
-                      }
+                  final List<FriendListItem> incomingList = [];
+                  if (incomingSnapshot.hasData) {
+                    for (var doc in incomingSnapshot.data!.docs) {
+                      incomingList.add(_parseUserDoc(doc));
                     }
                   }
 
-                  return _buildLayout(context, dynamicFriendsList);
+                  // Step 3: Stream global discovery users list (strangers who aren't friends yet)
+                  return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: FirebaseFirestore.instance.collection('users').snapshots(),
+                    builder: (context, globalSnapshot) {
+                      if (globalSnapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final List<FriendListItem> viewFriendsList = [];
+                      final List<FriendListItem> discoverUsersList = [];
+                      final List<FriendListItem> outgoingPendingList = [];
+
+                      if (globalSnapshot.hasData) {
+                        for (var doc in globalSnapshot.data!.docs) {
+                          if (doc.id == currentUserId) continue; // Skip myself
+
+                          final item = _parseUserDoc(doc);
+
+                          if (friendIds.contains(doc.id)) {
+                            viewFriendsList.add(item);
+                          } else {
+                            discoverUsersList.add(item);
+                            if (pendingInvites.contains(doc.id)) {
+                              outgoingPendingList.add(item);
+                            }
+                          }
+                        }
+                      }
+
+                      return _buildLayout(
+                        context: context,
+                        currentUserId: currentUserId,
+                        friendsList: viewFriendsList,
+                        discoverList: discoverUsersList,
+                        outgoingPendingList: outgoingPendingList,
+                        incomingList: incomingList,
+                        myPendingIds: pendingInvites,
+                      );
+                    },
+                  );
                 },
               );
             },
@@ -126,7 +128,25 @@ class _FriendsPageState extends State<FriendsPage> {
     );
   }
 
-  Widget _buildLayout(BuildContext context, List<FriendListItem> friendsList) {
+  FriendListItem _parseUserDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data();
+    return FriendListItem(
+      id: doc.id,
+      name: data['name'] ?? 'Unknown User',
+      handle: data['handle'] ?? '@unknown',
+      avatarUrl: data['profile_image'] ?? data['avatarUrl'] ?? '',
+    );
+  }
+
+  Widget _buildLayout({
+    required BuildContext context,
+    required String currentUserId,
+    required List<FriendListItem> friendsList,
+    required List<FriendListItem> discoverList,
+    required List<FriendListItem> outgoingPendingList,
+    required List<FriendListItem> incomingList,
+    required List<String> myPendingIds,
+  }) {
     return Column(
       children: [
         const SizedBox(height: 16),
@@ -135,7 +155,14 @@ class _FriendsPageState extends State<FriendsPage> {
         Expanded(
           child: _selectedTab == _FriendsTab.viewFriends
               ? _buildViewFriendsList(friendsList)
-              : _buildFindFriendsView(),
+              : _buildFindFriendsView(
+                  context: context,
+                  currentUserId: currentUserId,
+                  discoverList: discoverList,
+                  outgoingPendingList: outgoingPendingList,
+                  incomingList: incomingList,
+                  myPendingIds: myPendingIds,
+                ),
         ),
       ],
     );
@@ -160,9 +187,7 @@ class _FriendsPageState extends State<FriendsPage> {
                   foregroundColor: _selectedTab == _FriendsTab.viewFriends ? selectedTextColor : unselectedTextColor,
                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
-                onPressed: () {
-                  setState(() => _selectedTab = _FriendsTab.viewFriends);
-                },
+                onPressed: () => setState(() => _selectedTab = _FriendsTab.viewFriends),
                 child: const Text("View Friends"),
               ),
             ),
@@ -176,10 +201,8 @@ class _FriendsPageState extends State<FriendsPage> {
                   foregroundColor: _selectedTab == _FriendsTab.findFriends ? selectedTextColor : unselectedTextColor,
                   shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
                 ),
-                onPressed: () {
-                  setState(() => _selectedTab = _FriendsTab.findFriends);
-                },
-                child: const Text("Find Friends"),
+                onPressed: () => setState(() => _selectedTab = _FriendsTab.findFriends),
+                child: const Text("Request"),
               ),
             ),
           ),
@@ -190,11 +213,8 @@ class _FriendsPageState extends State<FriendsPage> {
 
   Widget _buildViewFriendsList(List<FriendListItem> friendsList) {
     if (friendsList.isEmpty) {
-      return const Center(
-        child: Text("You haven't added any friends yet."),
-      );
+      return const Center(child: Text("You haven't added any friends yet."));
     }
-
     return ListView.builder(
       itemCount: friendsList.length,
       itemBuilder: (context, index) {
@@ -206,7 +226,16 @@ class _FriendsPageState extends State<FriendsPage> {
     );
   }
 
-  Widget _buildFindFriendsView() {
+  Widget _buildFindFriendsView({
+    required BuildContext context,
+    required String currentUserId,
+    required List<FriendListItem> discoverList,
+    required List<FriendListItem> outgoingPendingList,
+    required List<FriendListItem> incomingList,
+    required List<String> myPendingIds,
+  }) {
+    const double singleCardHeight = 88.0; // Uniform card height bounding line limits
+
     return ListView(
       children: [
         const Padding(
@@ -216,19 +245,63 @@ class _FriendsPageState extends State<FriendsPage> {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28 / 1.75),
           ),
         ),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24),
-          child: _SearchInput(),
-        ),
-        const Padding(
-          padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
-          child: Text(
-            "PENDING INVITES",
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28 / 1.75),
+
+        Container(
+          constraints: const BoxConstraints(
+            maxHeight: singleCardHeight * 3,
           ),
+          margin: const EdgeInsets.symmetric(vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.symmetric(
+              horizontal: BorderSide(color: Theme.of(context).colorScheme.outlineVariant, width: 0.5),
+            ),
+          ),
+          child: discoverList.isEmpty
+              ? const Center(child: Text("No new users to discover."))
+              : ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: discoverList.length,
+                  itemExtent: singleCardHeight,
+                  itemBuilder: (context, index) {
+                    final targetUser = discoverList[index];
+                    final bool isPending = myPendingIds.contains(targetUser.id);
+
+                    return _FriendCard(
+                      friend: targetUser,
+                      onTap: () => _openFriendProfile(targetUser),
+                      trailing: ElevatedButton(
+                        onPressed: isPending
+                            ? null
+                            : () => _sendFriendRequest(currentUserId, targetUser),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isPending ? Colors.grey : const Color(0xFF4A6B53),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
+                        ),
+                        child: Text(
+                          isPending ? 'PENDING' : 'Request',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    );
+                  },
+                ),
         ),
-        for (final FriendListItem friend in _pendingInvites)
-          _FriendCard(friend: friend, onTap: () => _openFriendProfile(friend)),
+
+        if (outgoingPendingList.isNotEmpty) ...[
+          const Padding(
+            padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
+            child: Text(
+              "PENDING INVITES",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28 / 1.75),
+            ),
+          ),
+          for (final FriendListItem friend in outgoingPendingList)
+            _FriendCard(friend: friend, onTap: () => _openFriendProfile(friend)),
+        ],
+
         const Padding(
           padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
           child: Text(
@@ -236,25 +309,31 @@ class _FriendsPageState extends State<FriendsPage> {
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 28 / 1.75),
           ),
         ),
-        for (final FriendListItem friend in _incomingInvites)
-          _FriendCard(
-            friend: friend,
-            onTap: () => _openFriendProfile(friend),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _ActionCircleButton(
-                  icon: Icons.check,
-                  onPressed: () => _acceptInvite(friend),
-                ),
-                const SizedBox(width: 10),
-                _ActionCircleButton(
-                  icon: Icons.close,
-                  onPressed: () => _declineInvite(friend),
-                ),
-              ],
+        if (incomingList.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Text("No incoming friend requests.", style: TextStyle(color: Colors.grey)),
+          )
+        else
+          for (final FriendListItem friend in incomingList)
+            _FriendCard(
+              friend: friend,
+              onTap: () => _openFriendProfile(friend),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ActionCircleButton(
+                    icon: Icons.check,
+                    onPressed: () => _acceptInvite(currentUserId, friend),
+                  ),
+                  const SizedBox(width: 10),
+                  _ActionCircleButton(
+                    icon: Icons.close,
+                    onPressed: () => _declineInvite(currentUserId, friend),
+                  ),
+                ],
+              ),
             ),
-          ),
       ],
     );
   }
@@ -271,42 +350,69 @@ class _FriendsPageState extends State<FriendsPage> {
     );
   }
 
-  void _acceptInvite(FriendListItem friend) {
-    setState(() {
-      _incomingInvites.removeWhere((invite) => invite.id == friend.id);
-      _selectedTab = _FriendsTab.viewFriends;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("${friend.name} added to friends.")),
-    );
+  Future<void> _sendFriendRequest(String currentUserId, FriendListItem targetUser) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(currentUserId).update({
+        'pending_invites': FieldValue.arrayUnion([targetUser.id])
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Invite sent to ${targetUser.name}!")),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar(e);
+    }
   }
 
-  void _declineInvite(FriendListItem friend) {
-    setState(() {
-      _incomingInvites.removeWhere((invite) => invite.id == friend.id);
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Declined ${friend.name}'s friend request.")),
-    );
+  Future<void> _acceptInvite(String currentUserId, FriendListItem friend) async {
+    try {
+      final batch = FirebaseFirestore.instance.batch();
+      final currentDocRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
+      final requestorDocRef = FirebaseFirestore.instance.collection('users').doc(friend.id);
+
+      // Add to each other's active friends fields
+      batch.update(currentDocRef, {
+        'friends': FieldValue.arrayUnion([friend.id])
+      });
+      batch.update(requestorDocRef, {
+        'friends': FieldValue.arrayUnion([currentUserId]),
+        'pending_invites': FieldValue.arrayRemove([currentUserId])
+      });
+
+      await batch.commit();
+
+      setState(() => _selectedTab = _FriendsTab.viewFriends);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("${friend.name} added to friends.")),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar(e);
+    }
   }
-}
 
-class _SearchInput extends StatelessWidget {
-  const _SearchInput();
+  Future<void> _declineInvite(String currentUserId, FriendListItem friend) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(friend.id).update({
+        'pending_invites': FieldValue.arrayRemove([currentUserId])
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Declined ${friend.name}'s friend request.")),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar(e);
+    }
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      decoration: InputDecoration(
-        hintText: "Search...",
-        filled: true,
-        fillColor: Theme.of(context).colorScheme.surfaceContainerHighest,
-        prefixIcon: const Icon(Icons.search),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
-      ),
+  void _showErrorSnackBar(dynamic error) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Operation failed: $error")),
     );
   }
 }
@@ -327,36 +433,42 @@ class _FriendCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
+        height: 88, // Enforced explicit size mapping calculations
         decoration: BoxDecoration(
           border: Border(
-            top: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1),
-            bottom: BorderSide(color: Theme.of(context).colorScheme.primary, width: 1),
+            bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.3), width: 0.5),
           ),
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         child: Row(
           children: [
             CircleAvatar(
-              radius: 30,
+              radius: 26,
               backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
               backgroundImage: friend.avatarUrl.isNotEmpty ? NetworkImage(friend.avatarUrl) : null,
-              child: friend.avatarUrl.isEmpty ? const Icon(Icons.person_outline, size: 30) : null,
+              child: friend.avatarUrl.isEmpty ? const Icon(Icons.person_outline, size: 26) : null,
             ),
-            const SizedBox(width: 18),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     friend.name.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       fontWeight: FontWeight.w700,
-                      fontSize: 28 / 1.75,
+                      fontSize: 15,
                     ),
                   ),
+                  const SizedBox(height: 2),
                   Text(
                     friend.handle,
-                    style: const TextStyle(fontSize: 22 / 1.75),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   ),
                 ],
               ),
@@ -381,15 +493,17 @@ class _ActionCircleButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 44,
-      height: 44,
+      width: 38,
+      height: 38,
       child: FilledButton(
         style: FilledButton.styleFrom(
           shape: const CircleBorder(),
           padding: EdgeInsets.zero,
+          backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+          foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
         ),
         onPressed: onPressed,
-        child: Icon(icon, size: 22),
+        child: Icon(icon, size: 20),
       ),
     );
   }

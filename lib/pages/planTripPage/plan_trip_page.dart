@@ -14,7 +14,6 @@ import 'package:santa_clara/widgets/main_drawer.dart';
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
 import '../../widgets/location_card.dart';
-import '../../widgets/removable_image_card.dart';
 import '../../widgets/section_label.dart';
 
 class PlanTripPage extends StatelessWidget {
@@ -336,6 +335,18 @@ class PlanTripPage extends StatelessWidget {
   }
 
   Widget _buildNotesBox(BuildContext context, String initialNotes) {
+    final TextEditingController controller = TextEditingController(text: initialNotes);
+    final FocusNode focusNode = FocusNode();
+
+    // Listen for when user clicks away from the notes box to trigger a auto-save
+    focusNode.addListener(() {
+      if (!focusNode.hasFocus) {
+        BlocProvider.of<TripBloc>(context).add(
+          UpdateTripNotesEvent(controller.text),
+        );
+      }
+    });
+
     return Container(
       height: 120,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -346,12 +357,16 @@ class PlanTripPage extends StatelessWidget {
       ),
       child: Scrollbar(
         child: TextField(
-          controller: TextEditingController(text: initialNotes),
+          controller: controller,
+          focusNode: focusNode,
           maxLines: null,
           decoration: const InputDecoration(
             border: InputBorder.none,
             hintText: 'Enter trip notes here...',
           ),
+          onEditingComplete: () {
+            focusNode.unfocus(); 
+          },
         ),
       ),
     );
@@ -367,7 +382,7 @@ class PlanTripPage extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant,
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
               borderRadius: BorderRadius.circular(4),
             ),
             child: Row(
