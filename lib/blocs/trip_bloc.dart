@@ -29,6 +29,11 @@ class CreateNewTripEvent extends TripEvent {
   CreateNewTripEvent(this.name);
 }
 
+class UpdateTripNotesEvent extends TripEvent {
+  final String notes;
+  UpdateTripNotesEvent(this.notes);
+}
+
 // States
 enum TripStatus { initial, loading, loaded, successAction, failure }
 
@@ -155,5 +160,32 @@ class TripBloc extends Bloc<TripEvent, TripState> {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
     });
+
+  on<UpdateTripNotesEvent>((event, emit) async {
+    if (state.selectedTrip == null) return;
+    try {
+      await _repository.updateTripNotes(state.selectedTrip!.id, event.notes);
+
+      // update local state copy
+      final updatedTrips = state.allTrips.map((t) {
+        if (t.id == state.selectedTrip!.id) {
+          return Trip(
+            id: t.id, name: t.name, attendees: t.attendees, completed: t.completed,
+            startDate: t.startDate, endDate: t.endDate,
+            images: t.images, suppliesImages: t.suppliesImages, 
+            notes: event.notes,
+          );
+        }
+        return t;
+      }).toList();
+
+      emit(state.copyWith(
+        allTrips: updatedTrips,
+        selectedTrip: updatedTrips.firstWhere((t) => t.id == state.selectedTrip!.id),
+      ));
+    } catch (e) {
+      emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
+    }
+  });
   }
 }

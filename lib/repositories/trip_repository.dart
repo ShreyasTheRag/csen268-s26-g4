@@ -18,7 +18,7 @@ class TripRepository {
     final query = await _firestore
         .collection('trips')
         .where('attendees', arrayContains: userId) // <-- This looks inside the array field directly!
-        .where('completed', isEqualTo: 0 as int)
+        .where('completed', isEqualTo: 0)
         .get();
 
     return query.docs.map((doc) => Trip.fromFirestore(doc)).toList();
@@ -37,6 +37,12 @@ class TripRepository {
 
   Future<void> deleteTrip(String tripId) async {
     await _firestore.collection('trips').doc(tripId).delete();
+  }
+
+  Future<void> updateTripNotes(String tripId, String notes) async {
+    await _firestore.collection('trips').doc(tripId).update({
+      'notes': notes,
+    });
   }
 
   Future<Trip> createNewTrip(String tripName, String userId) async {

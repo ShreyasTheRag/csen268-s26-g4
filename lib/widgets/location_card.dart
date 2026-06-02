@@ -36,7 +36,7 @@ class LocationCard extends StatelessWidget {
               end: Alignment.bottomCenter,
               colors: [
                 Colors.transparent,
-                const Color(0xFF335C1F).withOpacity(0.8),
+                const Color(0xFF335C1F).withValues(alpha: 0.8),
               ],
             ),
           ),
