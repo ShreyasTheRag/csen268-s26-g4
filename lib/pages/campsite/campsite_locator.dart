@@ -18,22 +18,29 @@ class CampsiteLocatorPage extends StatefulWidget {
 class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
   bool showOnlyStarred = false;
   Campsite? selectedCampsite;
+  List<Campsite>? fetchedCampsites;
+  late Future<List<Campsite>> campsiteList;
+
+  @override
+  void initState() {
+    super.initState();
+    campsiteList = Campsite.getNearbyCampsites();
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return FutureBuilder<List<Campsite>>(
-      future: Campsite.getNearbyCampsites(37.3496, -121.9390, 99.9),
+      future: campsiteList,
       builder: (context, snapshot) {
-        List<Campsite> fetchedCampsites = [];
-        if (snapshot.hasData) {
+        if (snapshot.hasData && fetchedCampsites == null) {
           fetchedCampsites = snapshot.data!;
         }
 
         // 2. Apply your existing favorite filter over the real async data payload
         final displayedCampsites = showOnlyStarred 
-            ? fetchedCampsites.where((c) => c.isStarred).toList() 
-            : fetchedCampsites;
+            ? fetchedCampsites!.where((c) => c.isStarred).toList() 
+            : fetchedCampsites!;
         
         return Scaffold(
           drawer: const MainDrawer(),
@@ -46,7 +53,7 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
             children: [
               // MAP LAYER
               CustomGoogleMap(
-                locations: [const LatLng(37.3496, -121.9390)], 
+                locations: const [LatLng(37.3496, -121.9390)], 
                 extraMarkers: displayedCampsites.map((c) => Marker(
                   markerId: MarkerId(c.id),
                   position: c.position,

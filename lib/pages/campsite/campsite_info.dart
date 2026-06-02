@@ -44,10 +44,16 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HeroSection(title: campsite.name),
+            HeroSection(title: campsite.name, imageURI: campsite.imgURL, imageIsWeb: true),
             const SizedBox(height: 20),
 
             const PhotoGallery(),
+            const SizedBox(height: 20),
+
+            const SectionLabel('DESCRIPTION'),
+            BodyText(
+              text: campsite.description,
+            ),
             const SizedBox(height: 20),
 
             const SectionLabel('LOCATION'),
@@ -63,6 +69,7 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
                 },
               ),
             ),
+            const SizedBox(height: 20),
             const SizedBox(height: 24),
 
             AddThingsButton(title: 'Add Location To Trip', action: () => GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name)),

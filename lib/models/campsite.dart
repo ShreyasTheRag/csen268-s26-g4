@@ -1,22 +1,25 @@
 import 'dart:convert';
-
-import 'package:flutter/foundation.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
 class Campsite {
+  static List<Campsite>? _nc;
   final String id;
   final String name;
   final LatLng position;
   final double rating;
   final int reviews;
   final String price;
+  final String description;
+  final String imgURL;
   bool isStarred;
 
   Campsite({
     required this.id,
     required this.name,
     required this.position,
+    required this.description,
+    required this.imgURL,
     this.rating = 0.0,
     this.reviews = 0,
     this.price = '\$\$',
@@ -30,10 +33,13 @@ class Campsite {
     if (jsonObj['FacilityDescription']?.toString().toLowerCase().contains('free') == true) {
       determinedPrice = 'Free';
     }
+    String _imgURL = jsonObj['MEDIA'].length == 0 ? 'assets/car.png' : jsonObj['MEDIA'][0]['URL'];
     return Campsite(
       id: jsonObj['FacilityID']?.toString() ?? '',
       name: jsonObj['FacilityName'] ?? 'Unknown Dispersed Campsite',
       position: LatLng(lat, lng),
+      description: jsonObj['FacilityDescription'],
+      imgURL: _imgURL,
       price: determinedPrice,
       // rating and reviews default to 0.0 / 0 since RIDB lacks a native review count.
       // This maps perfectly to Treksetter's internal database once users start rating them!
@@ -43,24 +49,27 @@ class Campsite {
     );
   }
 
-  static Future<List<Campsite>> getNearbyCampsites(double lat, double lon, double radius) async {
-    try {
-      // 2. Use 'await' to halt execution right here until the network data lands
-      final List<dynamic> rawRIDBData = await RIDBService.fetchNearbyCampgrounds(lat, lon, radius);
-      
-      // 3. Map the data cleanly once it arrives
-      List<Campsite> csl = rawRIDBData.map((jsonItem) {
-        return Campsite.fromRIDB(jsonItem);
-      }).toList();
-      
-      // 4. Now this print will show your actual campsites!
-      print("Successfully mapped ${csl.length} campsites.");
-      return csl;
-      
-    } catch (error) {
-      print("Error parsing campsites: $error");
-      return []; // Return an empty list if the database call fails
+  static Future<List<Campsite>> getNearbyCampsites() async {
+    if (_nc == null) {
+      try {
+        // 2. Use 'await' to halt execution right here until the network data lands
+        final List<dynamic> rawRIDBData = await RIDBService.fetchNearbyCampgrounds();
+        
+        // 3. Map the data cleanly once it arrives
+        List<Campsite> csl = rawRIDBData.map((jsonItem) {
+          return Campsite.fromRIDB(jsonItem);
+        }).toList();
+        
+        // 4. Now this print will show your actual campsites!
+        print("Successfully mapped ${csl.length} campsites.");
+        _nc = csl;
+        
+      } catch (error) {
+        print("Error parsing campsites: $error");
+        _nc = []; // Return an empty list if the database call fails
+      }
     }
+    return Future.delayed(Duration.zero, () => _nc!);
   }
 }
 
@@ -90,7 +99,7 @@ sealed class RIDBService {
       rethrow;
     }
   }
-  static Future<List<dynamic>> fetchNearbyCampgrounds(double lat, double lon, double radiusInMiles) async {
+  static Future<List<dynamic>> fetchNearbyCampgrounds() async {
     // 1. Build a completely clean, raw URL string with absolutely no nested quotes
     const String targetUrl = 'https://ridb.recreation.gov/api/v1/facilities?state=CA&activity=CAMPING&limit=50';
     

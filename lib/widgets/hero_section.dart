@@ -2,19 +2,29 @@ import 'package:flutter/material.dart';
 
 class HeroSection extends StatefulWidget {
   final String title;
+  final String? imageURI;
+  final bool? imageIsWeb;
   const HeroSection({
     super.key,
-    required this.title
+    required this.title,
+    this.imageURI,
+    this.imageIsWeb,
   });
   @override
-  State<StatefulWidget> createState() => _HeroSectionState(title);
+  State<StatefulWidget> createState() => _HeroSectionState(title, imageURI, imageIsWeb);
 }
 
 class _HeroSectionState extends State<HeroSection> {
   final String title;
   late bool isFavorited;
+  final String? imageURI;
+  final bool? imageIsWeb;
 
-  _HeroSectionState(this.title);
+  /*
+  
+   */
+
+  _HeroSectionState(this.title, this.imageURI, this.imageIsWeb);
 
   @override
   void initState() {
@@ -29,8 +39,8 @@ class _HeroSectionState extends State<HeroSection> {
       width: double.infinity,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        image: const DecorationImage(
-          image: AssetImage('assets/car.png'),
+        image: DecorationImage(
+          image: (imageIsWeb ?? false) ? NetworkImage(imageURI!) : AssetImage(imageURI ?? 'assets/car.png'),
           fit: BoxFit.cover,
         ),
       ),
