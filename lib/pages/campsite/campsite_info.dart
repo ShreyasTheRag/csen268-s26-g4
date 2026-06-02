@@ -7,7 +7,6 @@ import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
 import 'package:santa_clara/blocs/trip_bloc.dart'; 
 import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/models/trip_model.dart';
-// import 'package:shimmer/shimmer.dart';
 
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/add_things_button.dart';
@@ -128,8 +127,8 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
                         return; 
                       }
 
-                      // Dispatch event to update local Bloc state layout
                       if (context.mounted) {
+                        // Dispatch event to update local Bloc state data arrays
                         BlocProvider.of<TripBloc>(context).add(
                           UpdateTripLocationsEvent(
                             tripId: targetTrip.id, 
@@ -137,7 +136,7 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
                           ),
                         );
 
-                        // Force-refresh selected trip state locally
+                        // Ensure local selection references the updated record
                         BlocProvider.of<TripBloc>(context).add(SelectTrip(targetTrip));
                         
                         GoRouter.of(context).goNamed(MyRoutes.planTrip.name);

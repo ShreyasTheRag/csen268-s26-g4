@@ -49,7 +49,6 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
           );
         }
 
-        // Cache snapshot data locally safely once loaded
         if (fetchedCampsites == null) {
           fetchedCampsites = snapshot.data!;
         }
