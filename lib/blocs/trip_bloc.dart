@@ -34,6 +34,11 @@ class UpdateTripNotesEvent extends TripEvent {
   UpdateTripNotesEvent(this.notes);
 }
 
+class AddLocationToTripEvent extends TripEvent {
+  final String locationName;
+  AddLocationToTripEvent({required this.locationName});
+}
+
 // States
 enum TripStatus { initial, loading, loaded, successAction, failure }
 
@@ -109,7 +114,7 @@ class TripBloc extends Bloc<TripEvent, TripState> {
               id: t.id, name: t.name, attendees: t.attendees, completed: t.completed,
               startDate: event.isStart ? event.date : t.startDate,
               endDate: event.isStart ? t.endDate : event.date,
-              images: t.images, suppliesImages: t.suppliesImages, notes: t.notes,
+              images: t.images, suppliesImages: t.suppliesImages, notes: t.notes, locations: t.locations,
             );
           }
           return t;
@@ -173,7 +178,33 @@ class TripBloc extends Bloc<TripEvent, TripState> {
             id: t.id, name: t.name, attendees: t.attendees, completed: t.completed,
             startDate: t.startDate, endDate: t.endDate,
             images: t.images, suppliesImages: t.suppliesImages, 
-            notes: event.notes,
+            notes: event.notes, locations: t.locations,
+          );
+        }
+        return t;
+      }).toList();
+
+      emit(state.copyWith(
+        allTrips: updatedTrips,
+        selectedTrip: updatedTrips.firstWhere((t) => t.id == state.selectedTrip!.id),
+      ));
+    } catch (e) {
+      emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
+    }
+  });
+
+  on<AddLocationToTripEvent>((event, emit) async {
+    if (state.selectedTrip == null) return;
+    try {
+      final updatedLocations = List<String>.from(state.selectedTrip!.locations)..add(event.locationName);
+
+      final updatedTrips = state.allTrips.map((t) {
+        if (t.id == state.selectedTrip!.id) {
+          return Trip(
+            id: t.id, name: t.name, attendees: t.attendees, completed: t.completed,
+            startDate: t.startDate, endDate: t.endDate,
+            images: t.images, suppliesImages: t.suppliesImages, notes: t.notes,
+            locations: updatedLocations, // Only update the string list
           );
         }
         return t;

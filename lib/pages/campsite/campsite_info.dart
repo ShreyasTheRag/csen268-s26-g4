@@ -1,7 +1,13 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:santa_clara/blocs/trip_bloc.dart'; 
 import 'package:santa_clara/models/campsite.dart';
+import 'package:santa_clara/models/trip_model.dart';
+import 'package:shimmer/shimmer.dart';
+
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/add_things_button.dart';
 import 'package:santa_clara/widgets/body_text.dart';
@@ -14,69 +20,131 @@ import 'package:santa_clara/widgets/triad.dart';
 import '../../widgets/section_label.dart';
 
 class CampsiteInfoPage extends StatefulWidget {
-  final Campsite? campsite;
+  final Campsite campsite;
 
   const CampsiteInfoPage({super.key, required this.campsite});
 
   @override
-  State<CampsiteInfoPage> createState() => _CampsiteInfoPageState(campsite);
+  State<CampsiteInfoPage> createState() => _CampsiteInfoPageState();
 }
 
 class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
-  Campsite? campsite;
   bool isFavorited = false;
-  // TODO: update campsite info based on which location was selected
 
-  _CampsiteInfoPageState(this.campsite);
+  Future<void> _addCampsiteNameToTrip(String tripId) async {
+    try {
+      await FirebaseFirestore.instance.collection('trips').doc(tripId).update({
+        'locations': FieldValue.arrayUnion([widget.campsite.name]),
+      });
+    } catch (e) {
+      debugPrint("Error appending campsite name to Firestore: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       drawer: const MainDrawer(),
-      appBar: AppBar(title: const Text("Campsite Info"), actions: const [
-          LoggedInUserAvatar(
-            userAvatarSize: UserAvatarSize.small,
-          )
-        ]),
-      body: campsite == null ? const Center(child: Text("No campsite selected"))
-      : SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            HeroSection(title: campsite!.name, imageURI: campsite!.imgURL, imageIsWeb: true),
-            const SizedBox(height: 20),
+      appBar: AppBar(
+        title: const Text("Campsite Info"), 
+        actions: const [
+          LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small)
+        ],
+      ),
+      body: BlocBuilder<TripBloc, TripState>(
+        builder: (context, tripState) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                HeroSection(
+                  title: widget.campsite.name, 
+                  imageURI: widget.campsite.imgURL, 
+                  imageIsWeb: true,
+                ),
+                const SizedBox(height: 20),
 
-            const PhotoGallery(),
-            const SizedBox(height: 20),
+                const PhotoGallery(),
+                const SizedBox(height: 20),
 
-            const SectionLabel('DESCRIPTION'),
-            BodyText(
-              text: campsite!.description,
+                const SectionLabel('DESCRIPTION'),
+                BodyText(
+                  text: widget.campsite.description,
+                ),
+                const SizedBox(height: 20),
+
+                const SectionLabel('LOCATION'),
+                SizedBox(
+                  height: 300, 
+                  child: tripState.status == TripStatus.loading
+                      ? Shimmer.fromColors(
+                          baseColor: Colors.grey[300]!,
+                          highlightColor: Colors.grey[100]!,
+                          child: Container(
+                            width: double.infinity,
+                            height: 300,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        )
+                      : CustomGoogleMap(
+                          locations: [widget.campsite.position],
+                          extraMarkers: {
+                            Marker(
+                              markerId: MarkerId(widget.campsite.name),
+                              position: widget.campsite.position,
+                            ),
+                          },
+                        ),
+                ),
+                const SizedBox(height: 24),
+
+                AddThingsButton(
+                  title: 'Add Location To Trip', 
+                  action: () async {
+                    Trip? targetTrip = tripState.selectedTrip;
+                    
+                    if (targetTrip == null && tripState.allTrips.isNotEmpty) {
+                      targetTrip = tripState.allTrips.first;
+                    }
+
+                    if (targetTrip != null) {
+                      await _addCampsiteNameToTrip(targetTrip.id);
+                      
+                      if (context.mounted) {
+                        if (tripState.selectedTrip == null) {
+                          BlocProvider.of<TripBloc>(context).add(SelectTrip(targetTrip));
+                        }
+                        
+                        BlocProvider.of<TripBloc>(context).add(
+                          SelectTrip(targetTrip),
+                        );
+                      }
+                      
+                      if (context.mounted) {
+                        GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name);
+                      }
+                    } else {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text("You don't have any active trips yet. Please create one first!"),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      }
+                    }
+                  },
+                ),
+                const SizedBox(height: 40),
+              ],
             ),
-            const SizedBox(height: 20),
-
-            const SectionLabel('LOCATION'),
-            SizedBox( // Removed const from here
-              height: 300, 
-              child: CustomGoogleMap(
-                locations: [campsite!.position],
-                extraMarkers: {
-                  Marker(
-                    markerId: MarkerId(campsite!.name),
-                    position: campsite!.position,
-                  ),
-                },
-              ),
-            ),
-            const SizedBox(height: 20),
-            const SizedBox(height: 24),
-
-            AddThingsButton(title: 'Add Location To Trip', action: () => GoRouter.of(context).goNamed(IndexedRoutes.routes[4].name)),
-            const SizedBox(height: 40),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

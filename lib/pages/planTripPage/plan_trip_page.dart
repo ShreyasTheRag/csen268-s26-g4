@@ -11,6 +11,8 @@ import 'package:santa_clara/widgets/google_maps.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 
+import 'package:santa_clara/models/campsite.dart'; 
+
 import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
 import '../../widgets/location_card.dart';
@@ -19,7 +21,6 @@ import '../../widgets/section_label.dart';
 class PlanTripPage extends StatelessWidget {
   const PlanTripPage({super.key});
 
-  // Dialog Helper prompt to create a new trip
   void _showCreateTripDialog(BuildContext context) {
     final TextEditingController controller = TextEditingController();
     showDialog(
@@ -42,7 +43,6 @@ class PlanTripPage extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 if (controller.text.trim().isNotEmpty) {
-                  // Dispatch creation event to the original context Bloc
                   BlocProvider.of<TripBloc>(context).add(
                     CreateNewTripEvent(controller.text.trim()),
                   );
@@ -76,195 +76,224 @@ class PlanTripPage extends StatelessWidget {
 
         final String loggedInUserEmail = authState.user.email;
 
-        return BlocProvider(
-          create: (context) => TripBloc()..add(LoadUserTrips(loggedInUserEmail)),
-          child: Scaffold(
-            backgroundColor: colorScheme.surface,
-            drawer: const MainDrawer(),
-            appBar: AppBar(
-              title: const Text("Plan a Trip"),
-              actions: const [
-                LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small),
-              ],
-            ),
-            body: BlocConsumer<TripBloc, TripState>(
-              listener: (context, tripState) {
-                if (tripState.status == TripStatus.successAction) {
-                  GoRouter.of(context).goNamed(MyRoutes.profile.name);
-                } else if (tripState.status == TripStatus.failure) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(tripState.errorMessage ?? 'An error occurred.')),
-                  );
-                }
-              },
-              builder: (context, tripState) {
-                if (tripState.status == TripStatus.loading || tripState.status == TripStatus.initial) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+        final tripBloc = BlocProvider.of<TripBloc>(context);
+        if (tripBloc.state.status == TripStatus.initial) {
+          tripBloc.add(LoadUserTrips(loggedInUserEmail));
+        }
 
-                if (tripState.allTrips.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text("No active planned trips found."),
-                        const SizedBox(height: 12),
-                        ElevatedButton.icon(
-                          onPressed: () => _showCreateTripDialog(context),
-                          icon: const Icon(Icons.add),
-                          label: const Text("Create a Trip"),
-                        )
-                      ],
-                    ),
-                  );
-                }
+        return Scaffold(
+          backgroundColor: colorScheme.surface,
+          drawer: const MainDrawer(),
+          appBar: AppBar(
+            title: const Text("Plan a Trip"),
+            actions: const [
+              LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small),
+            ],
+          ),
+          body: BlocConsumer<TripBloc, TripState>(
+            listener: (context, tripState) {
+              if (tripState.status == TripStatus.successAction) {
+                GoRouter.of(context).goNamed(MyRoutes.profile.name);
+              } else if (tripState.status == TripStatus.failure) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(tripState.errorMessage ?? 'An error occurred.')),
+                );
+              }
+            },
+            builder: (context, tripState) {
+              if (tripState.status == TripStatus.loading || tripState.status == TripStatus.initial) {
+                return const Center(child: CircularProgressIndicator());
+              }
 
-                final trip = tripState.selectedTrip!;
-                final friends = trip.attendees.where((id) => id != tripState.currentUserId).toList();
-
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.all(16.0),
+              if (tripState.allTrips.isEmpty) {
+                return Center(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const SectionLabel('SELECT A TRIP'),
-                      Row(
-                        children: [
-                          Expanded(child: _buildTripDropdown(context, tripState)),
-                          const SizedBox(width: 8),
-                          IconButton.filled(
-                            onPressed: () => _showCreateTripDialog(context),
-                            icon: const Icon(Icons.add),
-                            style: IconButton.styleFrom(
-                              backgroundColor: colorScheme.primary,
-                              foregroundColor: colorScheme.onPrimary, // Ensures the '+' icon has good contrast
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      const SectionLabel('LOCATION PLANNED'),
-                      HorizontalScrollList(
-                        height: 100,
-                        itemCount: 5,
-                        itemBuilder: (context, index) => const LocationCard(
-                          locationName: 'Location',
-                          imageAsset: 'assets/car.png',
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-
-                      const SectionLabel('ROUTE'),
-                      SizedBox(
-                        height: 300,
-                        child: CustomGoogleMap(
-                          locations: const [LatLng(37.3496, -121.9390)],
-                          extraMarkers: {
-                            const Marker(markerId: MarkerId('scu'), position: LatLng(37.3496, -121.9390)),
-                            const Marker(markerId: MarkerId('camp1'), position: LatLng(37.3510, -121.9410)),
-                            const Marker(markerId: MarkerId('camp2'), position: LatLng(37.3480, -121.9350)),
-                          },
-                        ),
-                      ),
+                      const Text("No active planned trips found."),
                       const SizedBox(height: 12),
-                      FullWidthButton(
-                        text: 'Add Location',
-                        onPressed: () {
-                          GoRouter.of(context).goNamed(MyRoutes.campsiteSelector.name);
-                        },
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(height: 20),
-
-                      _buildDatePicker(context, 'START DATE', trip.startDate, true),
-                      _buildDatePicker(context, 'END DATE', trip.endDate, false),
-                      const SizedBox(height: 20),
-
-                      const SectionLabel('YOUR IMAGES'),
-                      HorizontalScrollList(
-                        height: 100,
-                        itemCount: trip.images.isEmpty ? 1 : trip.images.length,
-                        itemBuilder: (context, index) {
-                          if (trip.images.isEmpty) {
-                            return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No images yet")));
-                          }
-                          return _buildNetworkImageCard(trip.images[index]);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      FullWidthButton(
-                        text: 'Add Photo',
-                        onPressed: () {
-                          GoRouter.of(context).pushNamed(MyRoutes.takePicture.name);
-                        },
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(height: 20),
-
-                      const SectionLabel('SUPPLIES BROUGHT'),
-                      HorizontalScrollList(
-                        height: 100,
-                        itemCount: trip.suppliesImages.isEmpty ? 1 : trip.suppliesImages.length,
-                        itemBuilder: (context, index) {
-                          if (trip.suppliesImages.isEmpty) {
-                            return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No supplies listed")));
-                          }
-                          return _buildNetworkImageCard(trip.suppliesImages[index]);
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      FullWidthButton(
-                        text: 'Add Supply',
-                        onPressed: () {},
-                        color: colorScheme.primary,
-                      ),
-                      const SizedBox(height: 20),
-
-                      const SectionLabel('TRIP NOTES'),
-                      _buildNotesBox(context, trip.notes),
-                      const SizedBox(height: 20),
-
-                      const SectionLabel('FRIENDS'),
-                      _buildFriendsList(context, friends),
-                      const SizedBox(height: 32),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: FullWidthButton(
-                              text: 'Finished Trip',
-                              color: colorScheme.primary,
-                              onPressed: () {
-                                BlocProvider.of<TripBloc>(context).add(FinishTripEvent());
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: FullWidthButton(
-                              text: 'Delete Trip',
-                              color: colorScheme.secondary,
-                              onPressed: () {
-                                BlocProvider.of<TripBloc>(context).add(DeleteTripEvent());
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 40),
+                      ElevatedButton.icon(
+                        onPressed: () => _showCreateTripDialog(context),
+                        icon: const Icon(Icons.add),
+                        label: const Text("Create a Trip"),
+                      )
                     ],
                   ),
                 );
-              },
-            ),
+              }
+
+              final trip = tripState.selectedTrip!;
+              final friends = trip.attendees.where((id) => id != tripState.currentUserId).toList();
+
+              return FutureBuilder<List<Campsite>>(
+                future: Campsite.getNearbyCampsites(),
+                builder: (context, campsiteSnapshot) {
+                  List<Campsite> matchingCampsites = [];
+
+                  if (campsiteSnapshot.hasData && campsiteSnapshot.data != null) {
+                    matchingCampsites = campsiteSnapshot.data!
+                        .whereType<Campsite>()
+                        .where((campsite) => trip.locations.contains(campsite.name))
+                        .toList();
+                  }
+
+                  final Set<Marker> routeMarkers = matchingCampsites.map((campsite) {
+                    return Marker(
+                      markerId: MarkerId(campsite.id),
+                      position: campsite.position,
+                      infoWindow: InfoWindow(title: campsite.name),
+                    );
+                  }).toSet();
+
+                  final LatLng mapCenter = matchingCampsites.isNotEmpty 
+                      ? matchingCampsites.first.position 
+                      : const LatLng(37.3496, -121.9390);
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SectionLabel('SELECT A TRIP'),
+                        Row(
+                          children: [
+                            Expanded(child: _buildTripDropdown(context, tripState)),
+                            const SizedBox(width: 8),
+                            IconButton.filled(
+                              onPressed: () => _showCreateTripDialog(context),
+                              icon: const Icon(Icons.add),
+                              style: IconButton.styleFrom(
+                                backgroundColor: colorScheme.primary,
+                                foregroundColor: colorScheme.onPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+
+                        const SectionLabel('LOCATION PLANNED'),
+                        if (trip.locations.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text("No locations added to this trip yet.", style: TextStyle(color: Colors.grey)),
+                          )
+                        else
+                          HorizontalScrollList(
+                            height: 100,
+                            itemCount: trip.locations.length,
+                            itemBuilder: (context, index) => LocationCard(
+                              locationName: trip.locations[index],
+                              imageAsset: 'assets/car.png',
+                            ),
+                          ),
+                        const SizedBox(height: 20),
+
+                        const SectionLabel('ROUTE'),
+                        SizedBox(
+                          height: 300,
+                          child: CustomGoogleMap(
+                            locations: [mapCenter],
+                            extraMarkers: routeMarkers, 
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        FullWidthButton(
+                          text: 'Add Location',
+                          onPressed: () {
+                            GoRouter.of(context).goNamed(MyRoutes.campsiteSelector.name);
+                          },
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 20),
+
+                        _buildDatePicker(context, 'START DATE', trip.startDate, true),
+                        _buildDatePicker(context, 'END DATE', trip.endDate, false),
+                        const SizedBox(height: 20),
+
+                        const SectionLabel('YOUR IMAGES'),
+                        HorizontalScrollList(
+                          height: 100,
+                          itemCount: trip.images.isEmpty ? 1 : trip.images.length,
+                          itemBuilder: (context, index) {
+                            if (trip.images.isEmpty) {
+                              return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No images yet")));
+                            }
+                            return _buildNetworkImageCard(trip.images[index]);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        FullWidthButton(
+                          text: 'Add Photo',
+                          onPressed: () {
+                            GoRouter.of(context).pushNamed(MyRoutes.takePicture.name);
+                          },
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 20),
+
+                        const SectionLabel('SUPPLIES BROUGHT'),
+                        HorizontalScrollList(
+                          height: 100,
+                          itemCount: trip.suppliesImages.isEmpty ? 1 : trip.suppliesImages.length,
+                          itemBuilder: (context, index) {
+                            if (trip.suppliesImages.isEmpty) {
+                              return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No supplies listed")));
+                            }
+                            return _buildNetworkImageCard(trip.suppliesImages[index]);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        FullWidthButton(
+                          text: 'Add Supply',
+                          onPressed: () {},
+                          color: colorScheme.primary,
+                        ),
+                        const SizedBox(height: 20),
+
+                        const SectionLabel('TRIP NOTES'),
+                        _buildNotesBox(context, trip.notes),
+                        const SizedBox(height: 20),
+
+                        const SectionLabel('FRIENDS'),
+                        _buildFriendsList(context, friends),
+                        const SizedBox(height: 32),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: FullWidthButton(
+                                text: 'Finished Trip',
+                                color: colorScheme.primary,
+                                onPressed: () {
+                                  BlocProvider.of<TripBloc>(context).add(FinishTripEvent());
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: FullWidthButton(
+                                text: 'Delete Trip',
+                                color: colorScheme.secondary,
+                                onPressed: () {
+                                  BlocProvider.of<TripBloc>(context).add(DeleteTripEvent());
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
         );
       },
     );
   }
 
-  // Unified dynamic widget rendering for Cloud Storage network images cleanly
   Widget _buildNetworkImageCard(String url) {
     return Container(
       width: 100,
@@ -292,9 +321,7 @@ class PlanTripPage extends StatelessWidget {
             top: 4,
             right: 4,
             child: GestureDetector(
-              onTap: () {
-                // Handle image removal if needed
-              },
+              onTap: () {},
               child: Container(
                 decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
                 child: const Icon(Icons.close, size: 16, color: Colors.white),
@@ -338,7 +365,6 @@ class PlanTripPage extends StatelessWidget {
     final TextEditingController controller = TextEditingController(text: initialNotes);
     final FocusNode focusNode = FocusNode();
 
-    // Listen for when user clicks away from the notes box to trigger a auto-save
     focusNode.addListener(() {
       if (!focusNode.hasFocus) {
         BlocProvider.of<TripBloc>(context).add(

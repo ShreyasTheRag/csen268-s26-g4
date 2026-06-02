@@ -48,16 +48,15 @@ class Campsite {
     }
     return Campsite(
       id: jsonObj['FacilityID']?.toString() ?? '',
-      name: jsonObj['FacilityName'] ?? 'Unknown Dispersed Campsite',
+      // 💡 FIX: Force cast to string safely to avoid null/dynamic layout issues
+      name: jsonObj['FacilityName']?.toString() ?? 'Unknown Dispersed Campsite',
       position: LatLng(lat, lng),
       description: description,
       imgURL: imgURL,
       price: determinedPrice,
-      // rating and reviews default to 0.0 / 0 since RIDB lacks a native review count.
-      // This maps perfectly to Treksetter's internal database once users start rating them!
       rating: 0.0, 
       reviews: 0,
-      isStarred: false, // Default state when pulling fresh data from network
+      isStarred: false, 
     );
   }
 

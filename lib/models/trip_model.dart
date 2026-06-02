@@ -10,6 +10,7 @@ class Trip {
   final List<String> images;
   final List<String> suppliesImages;
   final String notes;
+  final List<String> locations;
 
   Trip({
     required this.id,
@@ -21,6 +22,7 @@ class Trip {
     required this.images,
     required this.suppliesImages,
     required this.notes,
+    required this.locations,
   });
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
@@ -35,6 +37,7 @@ class Trip {
       images: List<String>.from(data['images'] ?? []),
       suppliesImages: List<String>.from(data['supplies_images'] ?? []),
       notes: data['notes'] ?? '',
+      locations: List<String>.from(data['locations'] ?? []),
     );
   }
 }
