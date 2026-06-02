@@ -4,14 +4,37 @@ import 'package:santa_clara/models/trip_model.dart';
 class TripRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  Future<String> getUserIdByEmail(String email) async {
+  /// Resolves the Firestore user id for [email]. Creates a `users/{uid}` doc on
+  /// first visit when [uid] is provided (Firebase Auth user without DB row yet).
+  Future<String> getUserIdByEmail(String email, {String? uid}) async {
     final query = await _firestore
         .collection('users')
         .where('email', isEqualTo: email)
         .limit(1)
         .get();
-    if (query.docs.isEmpty) throw Exception('User not found');
-    return query.docs.first.id;
+    if (query.docs.isNotEmpty) return query.docs.first.id;
+
+    if (uid != null && uid.isNotEmpty) {
+      final userRef = _firestore.collection('users').doc(uid);
+      final doc = await userRef.get();
+      if (doc.exists) return uid;
+
+      final handleBase = email.split('@').first;
+      await userRef.set({
+        'email': email,
+        'name': handleBase,
+        'handle': '@$handleBase',
+        'friends': <String>[],
+        'pending_invites': <String>[],
+      });
+      return uid;
+    }
+
+    final defaultDoc =
+        await _firestore.collection('users').doc('default_user').get();
+    if (defaultDoc.exists) return 'default_user';
+
+    throw Exception('User not found');
   }
 
   Future<List<Trip>> fetchActiveTrips(String userId) async {

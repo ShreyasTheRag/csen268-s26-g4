@@ -118,7 +118,10 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                       parentNavigatorKey: rootNavigatorKey,
                       name: MyRoutes.takePicture.name,
                       path: MyRoutes.takePicture.path,
-                      builder: (context, state) => const TakePicturePage(),
+                      builder: (context, state) {
+                        final tripId = state.extra as String? ?? '';
+                        return TakePicturePage(tripId: tripId);
+                      },
                     ),
                   ],
                 ),

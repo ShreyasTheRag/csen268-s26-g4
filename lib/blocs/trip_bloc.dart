@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:santa_clara/models/trip_model.dart';
+import 'package:santa_clara/repositories/trip_image_repository.dart';
 import 'package:santa_clara/repositories/trip_repository.dart';
 
 // Events
@@ -7,7 +8,8 @@ abstract class TripEvent {}
 
 class LoadUserTrips extends TripEvent {
   final String email;
-  LoadUserTrips(this.email);
+  final String? uid;
+  LoadUserTrips(this.email, {this.uid});
 }
 
 class SelectTrip extends TripEvent {
@@ -34,8 +36,31 @@ class UpdateTripNotesEvent extends TripEvent {
   UpdateTripNotesEvent(this.notes);
 }
 
+class UploadTripImageEvent extends TripEvent {
+  final String localPath;
+  UploadTripImageEvent(this.localPath);
+}
+
+/// Firestore/Storage upload already completed; sync local trip state.
+class AddTripImageUrlEvent extends TripEvent {
+  final String imageUrl;
+  AddTripImageUrlEvent(this.imageUrl);
+}
+
+class RemoveTripImageEvent extends TripEvent {
+  final String imageUrl;
+  RemoveTripImageEvent(this.imageUrl);
+}
+
 // States
-enum TripStatus { initial, loading, loaded, successAction, failure }
+enum TripStatus {
+  initial,
+  loading,
+  loaded,
+  uploadingImage,
+  successAction,
+  failure,
+}
 
 class TripState {
   final TripStatus status;
@@ -72,12 +97,14 @@ class TripState {
 // Bloc
 class TripBloc extends Bloc<TripEvent, TripState> {
   final TripRepository _repository = TripRepository();
+  final TripImageRepository _imageRepository = TripImageRepository();
 
   TripBloc() : super(TripState()) {
     on<LoadUserTrips>((event, emit) async {
       emit(state.copyWith(status: TripStatus.loading));
       try {
-        final userId = await _repository.getUserIdByEmail(event.email);
+        final userId =
+            await _repository.getUserIdByEmail(event.email, uid: event.uid);
         final trips = await _repository.fetchActiveTrips(userId);
         emit(state.copyWith(
           status: TripStatus.loaded,
@@ -166,26 +193,94 @@ class TripBloc extends Bloc<TripEvent, TripState> {
     try {
       await _repository.updateTripNotes(state.selectedTrip!.id, event.notes);
 
-      // update local state copy
-      final updatedTrips = state.allTrips.map((t) {
-        if (t.id == state.selectedTrip!.id) {
-          return Trip(
-            id: t.id, name: t.name, attendees: t.attendees, completed: t.completed,
-            startDate: t.startDate, endDate: t.endDate,
-            images: t.images, suppliesImages: t.suppliesImages, 
-            notes: event.notes,
-          );
-        }
-        return t;
-      }).toList();
-
-      emit(state.copyWith(
-        allTrips: updatedTrips,
-        selectedTrip: updatedTrips.firstWhere((t) => t.id == state.selectedTrip!.id),
+      emit(_withSelectedTrip(
+        (trip) => _copyTrip(trip, notes: event.notes),
       ));
     } catch (e) {
       emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
     }
   });
+
+    on<UploadTripImageEvent>((event, emit) async {
+      if (state.selectedTrip == null) return;
+      emit(state.copyWith(status: TripStatus.uploadingImage, errorMessage: null));
+      try {
+        final url = await _imageRepository.uploadTripImage(
+          tripId: state.selectedTrip!.id,
+          localPath: event.localPath,
+        );
+        emit(_withSelectedTrip(
+          (trip) => _copyTrip(trip, images: [...trip.images, url]),
+          status: TripStatus.loaded,
+        ));
+      } catch (e) {
+        emit(state.copyWith(
+          status: TripStatus.failure,
+          errorMessage: 'Failed to upload photo: $e',
+        ));
+      }
+    });
+
+    on<AddTripImageUrlEvent>((event, emit) {
+      if (state.selectedTrip == null) return;
+      if (state.selectedTrip!.images.contains(event.imageUrl)) return;
+      emit(_withSelectedTrip(
+        (trip) => _copyTrip(trip, images: [...trip.images, event.imageUrl]),
+      ));
+    });
+
+    on<RemoveTripImageEvent>((event, emit) async {
+      if (state.selectedTrip == null) return;
+      try {
+        await _imageRepository.removeTripImage(
+          tripId: state.selectedTrip!.id,
+          imageUrl: event.imageUrl,
+        );
+        emit(_withSelectedTrip(
+          (trip) => _copyTrip(
+            trip,
+            images: trip.images.where((u) => u != event.imageUrl).toList(),
+          ),
+        ));
+      } catch (e) {
+        emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
+      }
+    });
+  }
+
+  TripState _withSelectedTrip(
+    Trip Function(Trip trip) transform, {
+    TripStatus? status,
+  }) {
+    final selected = state.selectedTrip!;
+    final updatedTrip = transform(selected);
+    final updatedTrips = state.allTrips
+        .map((t) => t.id == selected.id ? updatedTrip : t)
+        .toList();
+    return state.copyWith(
+      status: status ?? state.status,
+      allTrips: updatedTrips,
+      selectedTrip: updatedTrip,
+    );
+  }
+
+  Trip _copyTrip(
+    Trip trip, {
+    List<String>? images,
+    String? notes,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    return Trip(
+      id: trip.id,
+      name: trip.name,
+      attendees: trip.attendees,
+      completed: trip.completed,
+      startDate: startDate ?? trip.startDate,
+      endDate: endDate ?? trip.endDate,
+      images: images ?? trip.images,
+      suppliesImages: trip.suppliesImages,
+      notes: notes ?? trip.notes,
+    );
   }
 }

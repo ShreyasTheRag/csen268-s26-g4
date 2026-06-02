@@ -15,6 +15,7 @@ import '../../widgets/full_width_button.dart';
 import '../../widgets/horizontal_scroll_list.dart';
 import '../../widgets/location_card.dart';
 import '../../widgets/section_label.dart';
+import '../../widgets/trip_image_thumbnail.dart';
 
 class PlanTripPage extends StatelessWidget {
   const PlanTripPage({super.key});
@@ -75,9 +76,11 @@ class PlanTripPage extends StatelessWidget {
         }
 
         final String loggedInUserEmail = authState.user.email;
+        final String? loggedInUserUid = authState.user.uid;
 
         return BlocProvider(
-          create: (context) => TripBloc()..add(LoadUserTrips(loggedInUserEmail)),
+          create: (context) => TripBloc()
+            ..add(LoadUserTrips(loggedInUserEmail, uid: loggedInUserUid)),
           child: Scaffold(
             backgroundColor: colorScheme.surface,
             drawer: const MainDrawer(),
@@ -94,6 +97,10 @@ class PlanTripPage extends StatelessWidget {
                 } else if (tripState.status == TripStatus.failure) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text(tripState.errorMessage ?? 'An error occurred.')),
+                  );
+                } else if (tripState.status == TripStatus.uploadingImage) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Uploading photo...')),
                   );
                 }
               },
@@ -182,23 +189,40 @@ class PlanTripPage extends StatelessWidget {
                       const SizedBox(height: 20),
 
                       const SectionLabel('YOUR IMAGES'),
+                      if (tripState.status == TripStatus.uploadingImage)
+                        const Padding(
+                          padding: EdgeInsets.only(bottom: 8),
+                          child: LinearProgressIndicator(),
+                        ),
                       HorizontalScrollList(
                         height: 100,
                         itemCount: trip.images.isEmpty ? 1 : trip.images.length,
                         itemBuilder: (context, index) {
                           if (trip.images.isEmpty) {
-                            return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No images yet")));
+                            return const Card(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Text('No images yet'),
+                              ),
+                            );
                           }
-                          return _buildNetworkImageCard(trip.images[index]);
+                          return _buildNetworkImageCard(
+                            context,
+                            trip.images[index],
+                          );
                         },
                       ),
                       const SizedBox(height: 12),
-                      FullWidthButton(
-                        text: 'Add Photo',
-                        onPressed: () {
-                          GoRouter.of(context).pushNamed(MyRoutes.takePicture.name);
-                        },
-                        color: colorScheme.primary,
+                      IgnorePointer(
+                        ignoring: tripState.status == TripStatus.uploadingImage,
+                        child: Opacity(
+                          opacity: tripState.status == TripStatus.uploadingImage ? 0.5 : 1,
+                          child: FullWidthButton(
+                            text: 'Add Photo',
+                            onPressed: () => _openCamera(context, trip.id),
+                            color: colorScheme.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 20),
 
@@ -210,7 +234,11 @@ class PlanTripPage extends StatelessWidget {
                           if (trip.suppliesImages.isEmpty) {
                             return const Card(child: Padding(padding: EdgeInsets.all(16.0), child: Text("No supplies listed")));
                           }
-                          return _buildNetworkImageCard(trip.suppliesImages[index]);
+                          return _buildNetworkImageCard(
+                            context,
+                            trip.suppliesImages[index],
+                            removable: false,
+                          );
                         },
                       ),
                       const SizedBox(height: 12),
@@ -264,8 +292,21 @@ class PlanTripPage extends StatelessWidget {
     );
   }
 
-  // Unified dynamic widget rendering for Cloud Storage network images cleanly
-  Widget _buildNetworkImageCard(String url) {
+  Future<void> _openCamera(BuildContext context, String tripId) async {
+    final imageUrl = await GoRouter.of(context).pushNamed<String>(
+      MyRoutes.takePicture.name,
+      extra: tripId,
+    );
+    if (imageUrl != null && context.mounted) {
+      context.read<TripBloc>().add(AddTripImageUrlEvent(imageUrl));
+    }
+  }
+
+  Widget _buildNetworkImageCard(
+    BuildContext context,
+    String url, {
+    bool removable = true,
+  }) {
     return Container(
       width: 100,
       margin: const EdgeInsets.only(right: 8),
@@ -277,30 +318,24 @@ class PlanTripPage extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            url,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) {
-              return const Center(child: Icon(Icons.broken_image, color: Colors.red));
-            },
-            loadingBuilder: (context, child, progress) {
-              if (progress == null) return child;
-              return const Center(child: CircularProgressIndicator());
-            },
+          GestureDetector(
+            onTap: () => TripImageThumbnail.showPreview(context, url),
+            child: TripImageThumbnail(imageSource: url),
           ),
-          Positioned(
-            top: 4,
-            right: 4,
-            child: GestureDetector(
-              onTap: () {
-                // Handle image removal if needed
-              },
-              child: Container(
-                decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                child: const Icon(Icons.close, size: 16, color: Colors.white),
+          if (removable)
+            Positioned(
+              top: 4,
+              right: 4,
+              child: GestureDetector(
+                onTap: () {
+                  context.read<TripBloc>().add(RemoveTripImageEvent(url));
+                },
+                child: Container(
+                  decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                  child: const Icon(Icons.close, size: 16, color: Colors.white),
+                ),
               ),
             ),
-          )
         ],
       ),
     );
@@ -444,8 +479,8 @@ class PlanTripPage extends StatelessWidget {
         );
       },
     );
-    if (picked != null) {
-      BlocProvider.of<TripBloc>(context).add(
+    if (picked != null && context.mounted) {
+      context.read<TripBloc>().add(
         UpdateTripDateEvent(date: picked, isStart: isStart),
       );
     }
