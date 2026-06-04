@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:santa_clara/blocs/trip_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
@@ -13,6 +14,7 @@ import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/full_width_button.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
+import 'package:santa_clara/widgets/trip_detail_sheet.dart';
 
 class UserProfileRepository {
   Future<void> uploadProfileImage({required String userId, required String localPath}) async {}
@@ -453,7 +455,7 @@ class _EditableProfileContentState extends State<_EditableProfileContent> {
               child: Row(
                 children: [
                   for (final tripDoc in trips) ...[
-                    _buildTripCard(tripDoc.data()),
+                    _buildTripCard(tripDoc),
                     const SizedBox(width: 15),
                   ]
                 ],
@@ -464,28 +466,36 @@ class _EditableProfileContentState extends State<_EditableProfileContent> {
     );
   }
 
-  Widget _buildTripCard(Map<String, dynamic> tripData) {
-    final String name = tripData['trip_name'] ?? tripData['name'] ?? 'Unnamed Trip'; // Handle database field variations
+  Widget _buildTripCard(QueryDocumentSnapshot<Map<String, dynamic>> tripDoc) {
+    final tripData = tripDoc.data();
+    final String name = tripData['trip_name'] ?? tripData['name'] ?? 'Unnamed Trip';
     final List images = tripData['images'] ?? [];
-    
-    // 💡 FIX: Clean up trailing whitespaces from the URL string coming from the database snapshot
     final String? firstImage = images.isNotEmpty ? images.first?.toString().trim() : null;
 
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: (firstImage == null || firstImage.isEmpty) ? Colors.green : Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onTap: () => showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width - 32,
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+        ),
+        builder: (_) => TripDetailSheet(tripData: tripData),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: (firstImage != null && firstImage.isNotEmpty)
-          ? Image.network(
-              firstImage, 
-              fit: BoxFit.cover, 
-              errorBuilder: (c, e, s) => _buildFallbackText(name),
-            )
-          : _buildFallbackText(name),
+      child: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: (firstImage == null || firstImage.isEmpty) ? Colors.green : Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: (firstImage != null && firstImage.isNotEmpty)
+            ? Image.network(firstImage, fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildFallbackText(name))
+            : _buildFallbackText(name),
+      ),
     );
   }
 
@@ -535,19 +545,26 @@ class _EditableProfileContentState extends State<_EditableProfileContent> {
 
   Widget _buildLocationCard(String locationName, List<Campsite> matchingPool) {
     final match = matchingPool.where((c) => c.name.trim().toLowerCase() == locationName.trim().toLowerCase());
-    final String? mappedImage = match.isNotEmpty ? match.first.imgURLs.first : null;
+    final campsite = match.isNotEmpty ? match.first : null;
+    final String? mappedImage = campsite?.imgURLs.first;
 
-    return Container(
-      width: 80,
-      height: 80,
-      decoration: BoxDecoration(
-        color: mappedImage == null ? Colors.green : Colors.grey[200],
-        borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onTap: campsite == null ? null : () {
+        BlocProvider.of<TripBloc>(context).add(SetLastViewedCampsite(campsite));
+        GoRouter.of(context).goNamed(MyRoutes.campsiteInfo.name);
+      },
+      child: Container(
+        width: 80,
+        height: 80,
+        decoration: BoxDecoration(
+          color: mappedImage == null ? Colors.green : Colors.grey[200],
+          borderRadius: BorderRadius.circular(8),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: mappedImage != null
+            ? Image.network(mappedImage, fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildFallbackText(locationName))
+            : _buildFallbackText(locationName),
       ),
-      clipBehavior: Clip.antiAlias,
-      child: mappedImage != null
-          ? Image.network(mappedImage, fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildFallbackText(locationName))
-          : _buildFallbackText(locationName),
     );
   }
 
