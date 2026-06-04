@@ -34,7 +34,7 @@ class _PlanTripPageState extends State<PlanTripPage> {
   final FocusNode _startTimeFocusNode = FocusNode();
   String? _startTimeFieldTripId;
 
-  /// Cached so Bloc rebuilds (e.g. reminder chips) do not refetch campsites.
+  // Cached so Bloc rebuilds do not refetch campsites.
   late final Future<List<Campsite>> _campsitesFuture =
       Campsite.getNearbyCampsites();
 
@@ -358,7 +358,7 @@ class _PlanTripPageState extends State<PlanTripPage> {
                         _buildNotesBox(context, trip.notes),
                         const SizedBox(height: 20),
                         const SectionLabel('ATTENDEES'),
-                        _buildFriendsList(context, friends),
+                        _buildFriendsList(context, friends, trip),
                         const SizedBox(height: 32),
                         Row(
                           children: [
@@ -822,16 +822,19 @@ class _PlanTripPageState extends State<PlanTripPage> {
     }
   }
 
-  Widget _buildFriendsList(BuildContext context, List<String> friendIds) {
+  Widget _buildFriendsList(BuildContext context, List<String> friendIds, Trip trip) {
     return Row(
       children: [
         ...friendIds.map(
           (id) => Padding(
-            padding: const EdgeInsets.only(right: 12.0), // Extra spacing for round avatars
+            padding: const EdgeInsets.only(right: 12.0),
             child: AttendeeAvatar(
               userId: id,
               onTap: () {
-                GoRouter.of(context).goNamed(MyRoutes.profile.name);
+                GoRouter.of(context).goNamed(
+                  MyRoutes.profile.name, 
+                  extra: trip.id,
+                );
               },
             ),
           ),
@@ -839,7 +842,10 @@ class _PlanTripPageState extends State<PlanTripPage> {
         IconButton(
           icon: Icon(Icons.add_circle, color: Theme.of(context).focusColor, size: 36),
           onPressed: () {
-            GoRouter.of(context).goNamed(MyRoutes.profileFriends.name);
+            GoRouter.of(context).goNamed(
+              MyRoutes.profileFriends.name,
+              extra: trip.id,
+            );
           },
         ),
       ],

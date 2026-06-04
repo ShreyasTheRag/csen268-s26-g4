@@ -82,7 +82,10 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                     GoRoute(
                       name: MyRoutes.profileFriends.name,
                       path: MyRoutes.profileFriends.path,
-                      builder: (context, state) => const FriendsPage(),
+                      builder: (context, state) {
+                        final String? tripId = state.extra as String?;
+                        return FriendsPage(tripId: tripId);
+                      },
                       routes: [
                         GoRoute(
                           name: "friendProfile",

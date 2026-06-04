@@ -7,10 +7,26 @@ import 'package:santa_clara/repositories/friends_repository.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 
+class FriendListItem {
+  final String id;
+  final String name;
+  final String handle;
+  final String avatarUrl;
+
+  const FriendListItem({
+    required this.id,
+    required this.name,
+    required this.handle,
+    required this.avatarUrl,
+  });
+}
+
 enum _FriendsTab { viewFriends, findFriends }
 
 class FriendsPage extends StatefulWidget {
-  const FriendsPage({super.key});
+  final String? tripId;
+
+  const FriendsPage({this.tripId, super.key});
 
   @override
   State<FriendsPage> createState() => _FriendsPageState();
@@ -19,12 +35,33 @@ class FriendsPage extends StatefulWidget {
 class _FriendsPageState extends State<FriendsPage> {
   _FriendsTab _selectedTab = _FriendsTab.viewFriends;
 
+  bool get _isTripMode => widget.tripId != null;
+
+  Future<void> _updateTripAttendee(String userId, bool shouldAdd) async {
+    if (widget.tripId == null) return;
+    try {
+      final tripDocRef = FirebaseFirestore.instance.collection('trips').doc(widget.tripId);
+      await tripDocRef.update({
+        'attendees': shouldAdd 
+            ? FieldValue.arrayUnion([userId]) 
+            : FieldValue.arrayRemove([userId]),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(shouldAdd ? "Added to trip" : "Removed from trip")),
+        );
+      }
+    } catch (e) {
+      _showErrorSnackBar(e);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: const Text("Friends"),
+        title: Text(_isTripMode ? "Manage Trip Attendees" : "Friends"),
         actions: const [
           LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small),
         ],
@@ -37,7 +74,6 @@ class _FriendsPageState extends State<FriendsPage> {
 
           final String currentUserEmail = authState.user.email;
 
-          // Step 1: Real-time listener for the logged-in user document
           return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('users')
@@ -61,7 +97,14 @@ class _FriendsPageState extends State<FriendsPage> {
               final List<String> friendIds = rawFriends.map((e) => e.toString()).toList();
               final List<String> pendingInvites = rawPendingInvites.map((e) => e.toString()).toList();
 
-              // Step 2: Stream incoming requests (users where 'pending_invites' array contains currentUserId)
+              // Create self-profile item reference for trip self-removal tasks
+              final myProfileItem = FriendListItem(
+                id: currentUserId,
+                name: userData['name'] ?? 'You',
+                handle: userData['handle'] ?? '@me',
+                avatarUrl: userData['profile_image'] ?? '',
+              );
+
               return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                 stream: FirebaseFirestore.instance
                     .collection('users')
@@ -79,9 +122,13 @@ class _FriendsPageState extends State<FriendsPage> {
                     }
                   }
 
-                  // Step 3: Stream global discovery users list (strangers who aren't friends yet)
+                  // sream global discovery users list / Trip Attendees Lookup matrix
                   return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                    stream: FirebaseFirestore.instance.collection('users').snapshots(),
+                    stream: _isTripMode
+                        ? FirebaseFirestore.instance.collection('trips').doc(widget.tripId).snapshots().asyncMap((doc) async {
+                            return await FirebaseFirestore.instance.collection('users').get();
+                          })
+                        : FirebaseFirestore.instance.collection('users').snapshots(),
                     builder: (context, globalSnapshot) {
                       if (globalSnapshot.connectionState == ConnectionState.waiting) {
                         return const Center(child: CircularProgressIndicator());
@@ -92,8 +139,9 @@ class _FriendsPageState extends State<FriendsPage> {
                       final List<FriendListItem> outgoingPendingList = [];
 
                       if (globalSnapshot.hasData) {
-                        for (var doc in globalSnapshot.data!.docs) {
-                          if (doc.id == currentUserId) continue; // Skip myself
+                        final querySnapshot = globalSnapshot.data as QuerySnapshot<Map<String, dynamic>>;
+                        for (var doc in querySnapshot.docs) {
+                          if (doc.id == currentUserId) continue; // Skip current user during mapping loop lists
 
                           final item = _parseUserDoc(doc);
 
@@ -106,6 +154,26 @@ class _FriendsPageState extends State<FriendsPage> {
                             }
                           }
                         }
+                      }
+
+                      if (_isTripMode) {
+                        return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                          stream: FirebaseFirestore.instance.collection('trips').doc(widget.tripId).snapshots(),
+                          builder: (context, tripSnapshot) {
+                            List<String> activeTripAttendees = [];
+                            if (tripSnapshot.hasData && tripSnapshot.data!.exists) {
+                              activeTripAttendees = List<String>.from(tripSnapshot.data!.data()?['attendees'] ?? []);
+                            }
+
+                            return _buildTripAttendeesLayout(
+                              context: context,
+                              currentUserId: currentUserId,
+                              meItem: myProfileItem,
+                              myFriends: viewFriendsList,
+                              attendeeIds: activeTripAttendees,
+                            );
+                          },
+                        );
                       }
 
                       return _buildLayout(
@@ -135,6 +203,61 @@ class _FriendsPageState extends State<FriendsPage> {
       name: data['name'] ?? 'Unknown User',
       handle: data['handle'] ?? '@unknown',
       avatarUrl: data['profile_image'] ?? data['avatarUrl'] ?? '',
+    );
+  }
+
+  // Alternative structure invoked strictly during Trip Editing setups
+  Widget _buildTripAttendeesLayout({
+    required BuildContext context,
+    required String currentUserId,
+    required FriendListItem meItem,
+    required List<FriendListItem> myFriends,
+    required List<String> attendeeIds,
+  }) {
+    final List<FriendListItem> dynamicPool = [meItem, ...myFriends];
+
+    return ListView(
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(24, 20, 24, 8),
+          child: Text(
+            "TRIP ATTENDEES",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        if (dynamicPool.isEmpty)
+          const Center(child: Padding(padding: EdgeInsets.all(16), child: Text("No friends available to add.")))
+        else
+          for (final person in dynamicPool) ...[
+            _buildTripAttendeeRow(context, person, attendeeIds.contains(person.id)),
+          ]
+      ],
+    );
+  }
+
+  Widget _buildTripAttendeeRow(BuildContext context, FriendListItem person, bool isEnrolled) {
+    return _FriendCard(
+      friend: person,
+      onTap: () => _openFriendProfile(person),
+      trailing: isEnrolled
+          ? OutlinedButton.icon(
+              onPressed: () => _updateTripAttendee(person.id, false),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Theme.of(context).colorScheme.error,
+                side: BorderSide(color: Theme.of(context).colorScheme.error),
+              ),
+              icon: const Icon(Icons.remove, size: 14),
+              label: const Text("Remove", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            )
+          : FilledButton.icon(
+              onPressed: () => _updateTripAttendee(person.id, true),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF4A6B53),
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.add, size: 14),
+              label: const Text("Add", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
     );
   }
 
@@ -234,7 +357,7 @@ class _FriendsPageState extends State<FriendsPage> {
     required List<FriendListItem> incomingList,
     required List<String> myPendingIds,
   }) {
-    const double singleCardHeight = 88.0; // Uniform card height bounding line limits
+    const double singleCardHeight = 88.0;
 
     return ListView(
       children: [
@@ -371,7 +494,6 @@ class _FriendsPageState extends State<FriendsPage> {
       final currentDocRef = FirebaseFirestore.instance.collection('users').doc(currentUserId);
       final requestorDocRef = FirebaseFirestore.instance.collection('users').doc(friend.id);
 
-      // Add to each other's active friends fields
       batch.update(currentDocRef, {
         'friends': FieldValue.arrayUnion([friend.id])
       });
@@ -433,7 +555,7 @@ class _FriendCard extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       child: Container(
-        height: 88, // Enforced explicit size mapping calculations
+        height: 88,
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(color: Theme.of(context).colorScheme.primary.withOpacity(0.3), width: 0.5),
@@ -465,7 +587,7 @@ class _FriendCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    friend.handle,
+                    friend.handle.startsWith('@') ? friend.handle : '@${friend.handle}',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
