@@ -224,7 +224,7 @@ class _PlanTripPageState extends State<PlanTripPage> {
                               return LocationCard(
                                 locationName: locName,
                                 imageAsset:
-                                    matchingCampsite?.imgURL ?? 'assets/car.png',
+                                    matchingCampsite?.imgURLs[0] ?? 'assets/car.png',
                                 imageIsWeb: matchingCampsite != null,
                               );
                             },
