@@ -10,6 +10,7 @@ import 'package:santa_clara/models/trip_model.dart';
 import 'package:santa_clara/models/trip_reminder_option.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/animated_reminder_chip.dart';
+import 'package:santa_clara/widgets/attendee_avatar.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
@@ -172,9 +173,7 @@ class _PlanTripPageState extends State<PlanTripPage> {
               }
 
               final trip = tripState.selectedTrip ?? tripState.allTrips.first;
-              final friends = trip.attendees
-                  .where((id) => id != tripState.currentUserId)
-                  .toList();
+              final friends = trip.attendees.toList();
 
               return FutureBuilder<List<Campsite>>(
                 future: _campsitesFuture,
@@ -358,7 +357,7 @@ class _PlanTripPageState extends State<PlanTripPage> {
                         const SectionLabel('TRIP NOTES'),
                         _buildNotesBox(context, trip.notes),
                         const SizedBox(height: 20),
-                        const SectionLabel('FRIENDS'),
+                        const SectionLabel('ATTENDEES'),
                         _buildFriendsList(context, friends),
                         const SizedBox(height: 32),
                         Row(
@@ -828,11 +827,10 @@ class _PlanTripPageState extends State<PlanTripPage> {
       children: [
         ...friendIds.map(
           (id) => Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: IconButton(
-              icon: const Icon(Icons.account_circle, size: 36),
-              tooltip: id,
-              onPressed: () {
+            padding: const EdgeInsets.only(right: 12.0), // Extra spacing for round avatars
+            child: AttendeeAvatar(
+              userId: id,
+              onTap: () {
                 GoRouter.of(context).goNamed(MyRoutes.profile.name);
               },
             ),
