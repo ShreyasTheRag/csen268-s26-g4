@@ -31,7 +31,7 @@ class IndexedRoutes {
         path: MyRoutes.chat.path,
         label: 'Your Vehicle',
         icon: Icons.directions_car,
-        child: const YourVehiclePage()),
+        child: YourVehiclePage()),
     MyRoute(
         name: MyRoutes.profile.name,
         path: MyRoutes.profile.path,
