@@ -1,5 +1,6 @@
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
 import 'package:santa_clara/models/campsite.dart';
+import 'package:santa_clara/models/take_picture_args.dart';
 import 'package:santa_clara/pages/campsite/campsite_info.dart';
 import 'package:santa_clara/pages/home/home_page.dart';
 import 'package:santa_clara/pages/friends/friends_page.dart';
@@ -119,7 +120,14 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                       name: MyRoutes.takePicture.name,
                       path: MyRoutes.takePicture.path,
                       builder: (context, state) {
-                        final tripId = state.extra as String? ?? '';
+                        final extra = state.extra;
+                        if (extra is TakePictureArgs) {
+                          return TakePicturePage(
+                            tripId: extra.tripId,
+                            forSupplies: extra.forSupplies,
+                          );
+                        }
+                        final tripId = extra is String ? extra : '';
                         return TakePicturePage(tripId: tripId);
                       },
                     ),

@@ -8,9 +8,14 @@ import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 
 class TakePicturePage extends StatefulWidget {
-  const TakePicturePage({super.key, required this.tripId});
+  const TakePicturePage({
+    super.key,
+    required this.tripId,
+    this.forSupplies = false,
+  });
 
   final String tripId;
+  final bool forSupplies;
 
   @override
   State<TakePicturePage> createState() => _TakePicturePageState();
@@ -122,11 +127,16 @@ class _TakePicturePageState extends State<TakePicturePage> {
       }
 
       if (!mounted) return;
-      setState(() => _statusMessage = 'Uploading photo...');
+      setState(() => _statusMessage = widget.forSupplies
+          ? 'Uploading supply photo...'
+          : 'Uploading photo...');
 
       final downloadUrl = await _imageRepository.uploadTripImage(
         tripId: widget.tripId,
         localPath: localPath,
+        category: widget.forSupplies
+            ? TripImageCategory.supplies
+            : TripImageCategory.tripPhotos,
       );
 
       if (mounted) {

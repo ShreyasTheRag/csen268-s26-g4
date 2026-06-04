@@ -1,41 +1,68 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
+import 'package:santa_clara/repositories/user_profile_repository.dart';
+import 'package:santa_clara/widgets/full_width_button.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
+import 'package:santa_clara/widgets/trip_image_thumbnail.dart';
 import 'package:santa_clara/widgets/triad.dart';
 import 'package:shimmer/shimmer.dart';
 
-class ProfilePage extends StatelessWidget {
-  // Parameter has been completely removed
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool _isEditing = false;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const MainDrawer(),
       appBar: AppBar(
-        title: const Text("Profile"), 
-        actions: const [
-          LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small)
+        title: const Text('Profile'),
+        actions: [
+          BlocBuilder<AuthenticationBloc, AuthenticationState>(
+            builder: (context, authState) {
+              if (authState is! AuthenticationSignedInState) {
+                return const SizedBox.shrink();
+              }
+              return IconButton(
+                icon: Icon(_isEditing ? Icons.close : Icons.edit_outlined),
+                tooltip: _isEditing ? 'Cancel editing' : 'Edit profile',
+                onPressed: () => setState(() => _isEditing = !_isEditing),
+              );
+            },
+          ),
+          const LoggedInUserAvatar(userAvatarSize: UserAvatarSize.small),
         ],
       ),
       body: BlocBuilder<AuthenticationBloc, AuthenticationState>(
         builder: (context, authState) {
           if (authState is! AuthenticationSignedInState) {
-            return const Center(child: Text("Please sign in to view your profile."));
+            return const Center(
+              child: Text('Please sign in to view your profile.'),
+            );
           }
 
-          final String userEmail = authState.user.email;
+          final user = authState.user;
+          final repo = UserProfileRepository();
 
-          // Query by email first
-          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('users')
-                .where('email', isEqualTo: userEmail)
+                .doc(user.uid)
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -43,33 +70,34 @@ class ProfilePage extends StatelessWidget {
               }
 
               if (snapshot.hasError) {
-                return const Center(child: Text("Error loading profile."));
+                return const Center(child: Text('Error loading profile.'));
               }
 
-              // Fallback Logic: If no user matches the email, switch to the default_user stream
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc('default_user')
-                      .snapshots(),
-                  builder: (context, defaultSnapshot) {
-                    if (defaultSnapshot.connectionState == ConnectionState.waiting) {
-                      return const _ProfileShimmerLoading();
+              if (!snapshot.hasData || !snapshot.data!.exists) {
+                return _ProfileSetupPrompt(
+                  onCreate: () async {
+                    try {
+                      await repo.ensureUserDocument(
+                        userId: user.uid,
+                        email: user.email,
+                      );
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not create profile: $e')),
+                        );
+                      }
                     }
-                    if (defaultSnapshot.hasError || !defaultSnapshot.hasData || !defaultSnapshot.data!.exists) {
-                      return const Center(child: Text("Profile data not found."));
-                    }
-
-                    final defaultData = defaultSnapshot.data!.data()!;
-                    return _ProfileContent(userData: defaultData);
                   },
                 );
               }
 
-              // Normal Behavior: Found a matching email document
-              final userData = snapshot.data!.docs.first.data();
-              return _ProfileContent(userData: userData);
+              return _EditableProfileContent(
+                userId: user.uid,
+                userData: snapshot.data!.data()!,
+                isEditing: _isEditing,
+                onEditingDone: () => setState(() => _isEditing = false),
+              );
             },
           );
         },
@@ -78,61 +106,532 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-/// Extracted content widget to handle the UI presentation cleanly
-class _ProfileContent extends StatelessWidget {
-  final Map<String, dynamic> userData;
+class _ProfileSetupPrompt extends StatelessWidget {
+  const _ProfileSetupPrompt({required this.onCreate});
 
-  const _ProfileContent({required this.userData});
+  final VoidCallback onCreate;
 
   @override
   Widget build(BuildContext context) {
-    final List tripsList = userData['trips'] ?? [];
-    final List friendsList = userData['friends'] ?? [];
-    final List locationsList = userData['locations_visited'] ?? [];
-    final List equipmentImages = userData['equipment_images'] ?? [];
-    final String? profileImageUrl = userData['profile_image'];
-    final String? userHandle = userData['handle'];
-
-    return Padding(
-      padding: const EdgeInsets.all(1.0),
-      child: SingleChildScrollView(
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
         child: Column(
-          spacing: 10.0,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: double.infinity,
-              height: 150,
-              child: LoggedInUserAvatar(
-                userAvatarSize: UserAvatarSize.large,
-                imageUrl: profileImageUrl,
-                userHandle: userHandle
-              ),
+            const Text(
+              'Set up your profile to share equipment and customize your account.',
+              textAlign: TextAlign.center,
             ),
-            Triad(
-              keys: const ["Trips", "Friends", "Locations"],
-              values: [
-                tripsList.length.toString(),
-                friendsList.length.toString(),
-                locationsList.length.toString(),
-              ],
-              onSecondTap: () =>
-                  GoRouter.of(context).goNamed(MyRoutes.profileFriends.name),
+            const SizedBox(height: 24),
+            FullWidthButton(
+              text: 'Create Profile',
+              color: Theme.of(context).colorScheme.primary,
+              onPressed: onCreate,
             ),
-            _ListOfPersonalDetails(
-              type: "Trips", 
-              items: tripsList,
-            ),
-            _ListOfPersonalDetails(
-              type: "Locations Visited", 
-              items: locationsList,
-            ),
-            _ListOfPersonalDetails(
-              type: "Equipment Willing To Share", 
-              items: equipmentImages,
-              isImage: true,
-            )
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _EditableProfileContent extends StatefulWidget {
+  const _EditableProfileContent({
+    required this.userId,
+    required this.userData,
+    required this.isEditing,
+    required this.onEditingDone,
+  });
+
+  final String userId;
+  final Map<String, dynamic> userData;
+  final bool isEditing;
+  final VoidCallback onEditingDone;
+
+  @override
+  State<_EditableProfileContent> createState() =>
+      _EditableProfileContentState();
+}
+
+class _EditableProfileContentState extends State<_EditableProfileContent> {
+  final UserProfileRepository _repository = UserProfileRepository();
+  final ImagePicker _picker = ImagePicker();
+
+  late TextEditingController _nameController;
+  late TextEditingController _handleController;
+  bool _isUploading = false;
+  String? _localProfilePreviewPath;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+    _handleController = TextEditingController();
+    _applyUserDataToControllers();
+  }
+
+  @override
+  void didUpdateWidget(covariant _EditableProfileContent oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userData != widget.userData && !_isUploading) {
+      _applyUserDataToControllers();
+    }
+    if (!widget.isEditing && oldWidget.isEditing) {
+      _applyUserDataToControllers();
+    }
+  }
+
+  void _applyUserDataToControllers() {
+    _nameController.text = widget.userData['name']?.toString() ?? '';
+    _handleController.text =
+        (widget.userData['handle']?.toString() ?? '').replaceFirst('@', '');
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _handleController.dispose();
+    super.dispose();
+  }
+
+  List<String> get _equipmentImages =>
+      List<String>.from(widget.userData['equipment_images'] ?? []);
+
+  String? get _profileImageUrl {
+    final raw = widget.userData['profile_image']?.toString();
+    if (raw == null || raw.trim().isEmpty) return null;
+    return raw;
+  }
+
+  Future<ImageSource?> _pickImageSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Camera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Photo library'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickImage({required bool forProfile}) async {
+    final source = await _pickImageSource();
+    if (source == null || !mounted) return;
+
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        maxWidth: forProfile ? 800 : 1200,
+        maxHeight: forProfile ? 800 : 1200,
+        imageQuality: forProfile ? 70 : 80,
+      );
+      if (picked == null || !mounted) return;
+
+      setState(() {
+        _isUploading = true;
+        if (forProfile && !kIsWeb) {
+          _localProfilePreviewPath = picked.path;
+        }
+      });
+
+      if (forProfile) {
+        await _repository.uploadProfileImage(
+          userId: widget.userId,
+          localPath: picked.path,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Profile photo updated')),
+          );
+        }
+      } else {
+        await _repository.addEquipmentImage(
+          userId: widget.userId,
+          localPath: picked.path,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Equipment photo added')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload failed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _localProfilePreviewPath = null;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveTextFields() async {
+    try {
+      await _repository.updateProfileText(
+        userId: widget.userId,
+        name: _nameController.text,
+        handle: _handleController.text,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile saved')),
+        );
+        widget.onEditingDone();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _removeEquipment(String imageUrl) async {
+    try {
+      await _repository.removeEquipmentImage(
+        userId: widget.userId,
+        imageUrl: imageUrl,
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not remove image: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tripsList = widget.userData['trips'] ?? [];
+    final friendsList = widget.userData['friends'] ?? [];
+    final locationsList = widget.userData['locations_visited'] ?? [];
+    final userHandle = widget.userData['handle']?.toString();
+    final displayName = widget.userData['name']?.toString();
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(1.0),
+      child: Column(
+        spacing: 10.0,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            height: widget.isEditing ? 200 : 150,
+            child: _buildAvatarSection(
+              userHandle: userHandle,
+              displayName: displayName,
+            ),
+          ),
+          if (widget.isEditing) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _nameController,
+                decoration: const InputDecoration(
+                  labelText: 'Display name',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: TextField(
+                controller: _handleController,
+                decoration: const InputDecoration(
+                  labelText: 'Handle',
+                  prefixText: '@',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: FullWidthButton(
+                text: 'Save name & handle',
+                color: Theme.of(context).colorScheme.primary,
+                onPressed: _saveTextFields,
+              ),
+            ),
+          ],
+          Triad(
+            keys: const ['Trips', 'Friends', 'Locations'],
+            values: [
+              tripsList.length.toString(),
+              friendsList.length.toString(),
+              locationsList.length.toString(),
+            ],
+            onSecondTap: () =>
+                GoRouter.of(context).goNamed(MyRoutes.profileFriends.name),
+          ),
+          _ListOfPersonalDetails(type: 'Trips', items: List.from(tripsList)),
+          _ListOfPersonalDetails(
+            type: 'Locations Visited',
+            items: List.from(locationsList),
+          ),
+          _EquipmentSection(
+            images: _equipmentImages,
+            isEditing: widget.isEditing,
+            onAdd: () => _pickImage(forProfile: false),
+            onRemove: _removeEquipment,
+            onTapImage: (url) => TripImageThumbnail.showPreview(context, url),
+          ),
+          if (widget.isEditing) const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarSection({
+    String? userHandle,
+    String? displayName,
+  }) {
+    const radius = 40.0;
+    final hasRemoteImage =
+        _profileImageUrl != null && _profileImageUrl!.trim().isNotEmpty;
+    final hasLocalPreview = _localProfilePreviewPath != null && !kIsWeb;
+
+    Widget avatar = hasLocalPreview
+        ? ClipOval(
+            child: SizedBox(
+              width: radius * 2,
+              height: radius * 2,
+              child: Image.file(
+                File(_localProfilePreviewPath!),
+                fit: BoxFit.cover,
+              ),
+            ),
+          )
+        : hasRemoteImage
+            ? ClipOval(
+                child: SizedBox(
+                  width: radius * 2,
+                  height: radius * 2,
+                  child: TripImageThumbnail(imageSource: _profileImageUrl!),
+                ),
+              )
+            : CircleAvatar(
+                radius: radius,
+                backgroundColor:
+                    Theme.of(context).colorScheme.primaryContainer,
+                child: Icon(
+                  Icons.person_outline,
+                  size: radius,
+                  color: Theme.of(context).colorScheme.onPrimaryContainer,
+                ),
+              );
+
+    if (widget.isEditing) {
+      avatar = GestureDetector(
+        onTap: () => _pickImage(forProfile: true),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            avatar,
+            Positioned(
+              right: -4,
+              bottom: -4,
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                child: const Icon(Icons.camera_alt, size: 18, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      );
+    } else if (!hasRemoteImage && !hasLocalPreview) {
+      avatar = LoggedInUserAvatar(
+        userAvatarSize: UserAvatarSize.large,
+        userHandle: userHandle,
+      );
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        avatar,
+        if (_isUploading) ...[
+          const SizedBox(height: 8),
+          const LinearProgressIndicator(minHeight: 3),
+          Text(
+            'Uploading photo…',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
+        const SizedBox(height: 8),
+        if (!widget.isEditing && hasRemoteImage && !hasLocalPreview) ...[
+          if (displayName != null && displayName.isNotEmpty)
+            Text(
+              displayName,
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+          if (userHandle != null && userHandle.isNotEmpty) Text(userHandle),
+        ],
+        if (widget.isEditing)
+          TextButton(
+            onPressed: () => _pickImage(forProfile: true),
+            child: const Text('Change profile photo'),
+          ),
+      ],
+    );
+  }
+}
+
+class _EquipmentSection extends StatelessWidget {
+  const _EquipmentSection({
+    required this.images,
+    required this.isEditing,
+    required this.onAdd,
+    required this.onRemove,
+    required this.onTapImage,
+  });
+
+  final List<String> images;
+  final bool isEditing;
+  final VoidCallback onAdd;
+  final Future<void> Function(String url) onRemove;
+  final void Function(String url) onTapImage;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Equipment Willing To Share',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          if (isEditing) ...[
+            const SizedBox(height: 4),
+            TextButton.icon(
+              onPressed: onAdd,
+              icon: const Icon(Icons.add_photo_alternate_outlined),
+              label: const Text('Add'),
+            ),
+          ],
+          const SizedBox(height: 8),
+          if (images.isEmpty)
+            Text(
+              isEditing
+                  ? 'Tap Add to share gear photos with friends.'
+                  : 'No equipment photos yet.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            )
+          else
+            Align(
+              alignment: Alignment.center,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                  for (final url in images)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: _EquipmentImageTile(
+                        imageUrl: url,
+                        isEditing: isEditing,
+                        onTap: () => onTapImage(url),
+                        onRemove: () => onRemove(url),
+                      ),
+                    ),
+                  if (isEditing)
+                    GestureDetector(
+                      onTap: onAdd,
+                      child: Container(
+                        width: 80,
+                        height: 80,
+                        decoration: BoxDecoration(
+                          color: colorScheme.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: colorScheme.primary),
+                        ),
+                        child: Icon(Icons.add, color: colorScheme.primary, size: 32),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EquipmentImageTile extends StatelessWidget {
+  const _EquipmentImageTile({
+    required this.imageUrl,
+    required this.isEditing,
+    required this.onTap,
+    required this.onRemove,
+  });
+
+  final String imageUrl;
+  final bool isEditing;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 80,
+      height: 80,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          GestureDetector(
+            onTap: onTap,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: TripImageThumbnail(imageSource: imageUrl),
+            ),
+          ),
+          if (isEditing)
+            Positioned(
+              top: 2,
+              right: 2,
+              child: GestureDetector(
+                onTap: onRemove,
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.black54,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.close, size: 16, color: Colors.white),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -141,13 +640,8 @@ class _ProfileContent extends StatelessWidget {
 class _ListOfPersonalDetails extends StatelessWidget {
   final String type;
   final List items;
-  final bool isImage;
 
-  const _ListOfPersonalDetails({
-    required this.type,
-    required this.items,
-    this.isImage = false,
-  });
+  const _ListOfPersonalDetails({required this.type, required this.items});
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +653,10 @@ class _ListOfPersonalDetails extends StatelessWidget {
           children: [
             Text(type, style: const TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 8.0),
-            Text("No $type added yet.", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            Text(
+              'No $type added yet.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+            ),
           ],
         ),
       );
@@ -168,7 +665,6 @@ class _ListOfPersonalDetails extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(type, style: const TextStyle(fontWeight: FontWeight.bold)),
@@ -176,60 +672,54 @@ class _ListOfPersonalDetails extends StatelessWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              spacing: 15.0,
-              children: items.map((item) {
-                return Container(
-                  width: 80.0,
-                  height: 80.0,
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8.0),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: isImage
-                      ? Image.network(
-                          item.toString(),
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) => 
-                              const Icon(Icons.broken_image, size: 30),
-                        )
-                      : Center(
-                          child: Padding(
-                            padding: const EdgeInsets.all(4.0),
-                            child: Text(
-                              item.toString(),
-                              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600),
-                              textAlign: TextAlign.center,
+              children: [
+                for (final item in items)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 15),
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Text(
+                            item.toString(),
+                            style: const TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
                             ),
+                            textAlign: TextAlign.center,
                           ),
                         ),
-                );
-              }).toList(),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          )
+          ),
         ],
       ),
     );
   }
 }
 
-/// Shimmer Layout designed to mimic the exact layout constraints of the true profile page
 class _ProfileShimmerLoading extends StatelessWidget {
   const _ProfileShimmerLoading();
 
   @override
   Widget build(BuildContext context) {
-    final shimmerColor = Colors.grey[300]!;
-    final highlightColor = Colors.grey[100]!;
-
     return Shimmer.fromColors(
-      baseColor: shimmerColor,
-      highlightColor: highlightColor,
+      baseColor: Colors.grey[300]!,
+      highlightColor: Colors.grey[100]!,
       child: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.all(20),
           child: Column(
-            spacing: 25.0,
+            spacing: 25,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Center(
@@ -244,33 +734,18 @@ class _ProfileShimmerLoading extends StatelessWidget {
               ),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(3, (index) => Container(
-                  width: 80,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(8.0),
+                children: List.generate(
+                  3,
+                  (_) => Container(
+                    width: 80,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
-                )),
+                ),
               ),
-              ...List.generate(3, (index) => Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                spacing: 10.0,
-                children: [
-                  Container(width: 120, height: 16, color: Colors.white),
-                  Row(
-                    spacing: 15.0,
-                    children: List.generate(4, (index) => Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8.0),
-                      ),
-                    )),
-                  )
-                ],
-              )),
             ],
           ),
         ),
