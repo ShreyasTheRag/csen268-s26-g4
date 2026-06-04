@@ -1,8 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/models/trip_model.dart';
+import 'package:santa_clara/models/trip_reminder_option.dart';
 import 'package:santa_clara/repositories/trip_image_repository.dart';
 import 'package:santa_clara/repositories/trip_repository.dart';
+import 'package:santa_clara/services/trip_notification_service.dart';
 
 // Events
 abstract class TripEvent {}
@@ -22,6 +25,11 @@ class UpdateTripDateEvent extends TripEvent {
   final DateTime date;
   final bool isStart;
   UpdateTripDateEvent({required this.date, required this.isStart});
+}
+
+class UpdateTripRemindersEvent extends TripEvent {
+  final List<TripReminderOption> options;
+  UpdateTripRemindersEvent(this.options);
 }
 
 class FinishTripEvent extends TripEvent {}
@@ -44,12 +52,14 @@ class UploadTripImageEvent extends TripEvent {
 
 class AddTripImageUrlEvent extends TripEvent {
   final String imageUrl;
-  AddTripImageUrlEvent(this.imageUrl);
+  final bool isSupply;
+  AddTripImageUrlEvent(this.imageUrl, {this.isSupply = false});
 }
 
 class RemoveTripImageEvent extends TripEvent {
   final String imageUrl;
-  RemoveTripImageEvent(this.imageUrl);
+  final bool isSupply;
+  RemoveTripImageEvent(this.imageUrl, {this.isSupply = false});
 }
 
 class AddLocationToTripEvent extends TripEvent {
@@ -65,6 +75,11 @@ class UpdateTripLocationsEvent extends TripEvent {
     required this.tripId,
     required this.locationName,
   });
+}
+
+class SetLastViewedCampsite extends TripEvent {
+  final Campsite campsite;
+  SetLastViewedCampsite(this.campsite);
 }
 
 // States
@@ -83,6 +98,7 @@ class TripState {
   final Trip? selectedTrip;
   final String? currentUserId;
   final String? errorMessage;
+  final Campsite? lastViewedCampsite;
 
   TripState({
     this.status = TripStatus.initial,
@@ -90,6 +106,7 @@ class TripState {
     this.selectedTrip,
     this.currentUserId,
     this.errorMessage,
+    this.lastViewedCampsite,
   });
 
   TripState copyWith({
@@ -98,6 +115,7 @@ class TripState {
     Trip? selectedTrip,
     String? currentUserId,
     String? errorMessage,
+    Campsite? lastViewedCampsite,
   }) {
     return TripState(
       status: status ?? this.status,
@@ -105,6 +123,7 @@ class TripState {
       selectedTrip: selectedTrip ?? this.selectedTrip,
       currentUserId: currentUserId ?? this.currentUserId,
       errorMessage: errorMessage ?? this.errorMessage,
+      lastViewedCampsite: lastViewedCampsite ?? this.lastViewedCampsite,
     );
   }
 }
@@ -113,6 +132,8 @@ class TripState {
 class TripBloc extends Bloc<TripEvent, TripState> {
   final TripRepository _repository = TripRepository();
   final TripImageRepository _imageRepository = TripImageRepository();
+  final TripNotificationService _notifications =
+      TripNotificationService.instance;
 
   TripBloc() : super(TripState()) {
     on<LoadUserTrips>((event, emit) async {
@@ -127,6 +148,25 @@ class TripBloc extends Bloc<TripEvent, TripState> {
           selectedTrip: trips.isNotEmpty ? trips.first : null,
           currentUserId: userId,
         ));
+        await _notifications.syncTrips(trips);
+      } catch (e) {
+        emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
+      }
+    });
+
+    on<UpdateTripRemindersEvent>((event, emit) async {
+      if (state.selectedTrip == null) return;
+      try {
+        await _repository.updateTripReminders(
+          state.selectedTrip!.id,
+          event.options,
+        );
+        final updatedTrip = _copyTrip(
+          state.selectedTrip!,
+          reminderOptions: event.options,
+        );
+        emit(_withSelectedTrip((_) => updatedTrip));
+        await _notifications.scheduleForTrip(updatedTrip);
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
@@ -144,13 +184,15 @@ class TripBloc extends Bloc<TripEvent, TripState> {
           date: event.date,
           isStart: event.isStart,
         );
-        emit(_withSelectedTrip(
-          (trip) => _copyTrip(
-            trip,
-            startDate: event.isStart ? event.date : trip.startDate,
-            endDate: event.isStart ? trip.endDate : event.date,
-          ),
-        ));
+        final updatedTrip = _copyTrip(
+          state.selectedTrip!,
+          startDate: event.isStart ? event.date : state.selectedTrip!.startDate,
+          endDate: event.isStart ? state.selectedTrip!.endDate : event.date,
+        );
+        emit(_withSelectedTrip((_) => updatedTrip));
+        if (event.isStart) {
+          await _notifications.scheduleForTrip(updatedTrip);
+        }
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
@@ -159,7 +201,9 @@ class TripBloc extends Bloc<TripEvent, TripState> {
     on<FinishTripEvent>((event, emit) async {
       if (state.selectedTrip == null) return;
       try {
-        await _repository.completeTrip(state.selectedTrip!.id);
+        final tripId = state.selectedTrip!.id;
+        await _repository.completeTrip(tripId);
+        await _notifications.cancelForTrip(tripId);
         emit(state.copyWith(status: TripStatus.successAction));
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
@@ -169,7 +213,9 @@ class TripBloc extends Bloc<TripEvent, TripState> {
     on<DeleteTripEvent>((event, emit) async {
       if (state.selectedTrip == null) return;
       try {
-        await _repository.deleteTrip(state.selectedTrip!.id);
+        final tripId = state.selectedTrip!.id;
+        await _repository.deleteTrip(tripId);
+        await _notifications.cancelForTrip(tripId);
         emit(state.copyWith(status: TripStatus.successAction));
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
@@ -188,6 +234,7 @@ class TripBloc extends Bloc<TripEvent, TripState> {
           allTrips: updatedList,
           selectedTrip: newTrip,
         ));
+        await _notifications.scheduleForTrip(newTrip);
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
@@ -225,10 +272,20 @@ class TripBloc extends Bloc<TripEvent, TripState> {
 
     on<AddTripImageUrlEvent>((event, emit) {
       if (state.selectedTrip == null) return;
-      if (state.selectedTrip!.images.contains(event.imageUrl)) return;
-      emit(_withSelectedTrip(
-        (trip) => _copyTrip(trip, images: [...trip.images, event.imageUrl]),
-      ));
+      if (event.isSupply) {
+        if (state.selectedTrip!.suppliesImages.contains(event.imageUrl)) return;
+        emit(_withSelectedTrip(
+          (trip) => _copyTrip(
+            trip,
+            suppliesImages: [...trip.suppliesImages, event.imageUrl],
+          ),
+        ));
+      } else {
+        if (state.selectedTrip!.images.contains(event.imageUrl)) return;
+        emit(_withSelectedTrip(
+          (trip) => _copyTrip(trip, images: [...trip.images, event.imageUrl]),
+        ));
+      }
     });
 
     on<RemoveTripImageEvent>((event, emit) async {
@@ -237,13 +294,27 @@ class TripBloc extends Bloc<TripEvent, TripState> {
         await _imageRepository.removeTripImage(
           tripId: state.selectedTrip!.id,
           imageUrl: event.imageUrl,
+          category: event.isSupply
+              ? TripImageCategory.supplies
+              : TripImageCategory.tripPhotos,
         );
-        emit(_withSelectedTrip(
-          (trip) => _copyTrip(
-            trip,
-            images: trip.images.where((u) => u != event.imageUrl).toList(),
-          ),
-        ));
+        if (event.isSupply) {
+          emit(_withSelectedTrip(
+            (trip) => _copyTrip(
+              trip,
+              suppliesImages: trip.suppliesImages
+                  .where((u) => u != event.imageUrl)
+                  .toList(),
+            ),
+          ));
+        } else {
+          emit(_withSelectedTrip(
+            (trip) => _copyTrip(
+              trip,
+              images: trip.images.where((u) => u != event.imageUrl).toList(),
+            ),
+          ));
+        }
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
@@ -260,6 +331,10 @@ class TripBloc extends Bloc<TripEvent, TripState> {
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
+    });
+
+    on<SetLastViewedCampsite>((event, emit) {
+      emit(state.copyWith(lastViewedCampsite: event.campsite));
     });
 
     on<UpdateTripLocationsEvent>(_onUpdateTripLocations);
@@ -321,10 +396,12 @@ class TripBloc extends Bloc<TripEvent, TripState> {
   Trip _copyTrip(
     Trip trip, {
     List<String>? images,
+    List<String>? suppliesImages,
     List<String>? locations,
     String? notes,
     DateTime? startDate,
     DateTime? endDate,
+    List<TripReminderOption>? reminderOptions,
   }) {
     return Trip(
       id: trip.id,
@@ -334,9 +411,10 @@ class TripBloc extends Bloc<TripEvent, TripState> {
       startDate: startDate ?? trip.startDate,
       endDate: endDate ?? trip.endDate,
       images: images ?? trip.images,
-      suppliesImages: trip.suppliesImages,
+      suppliesImages: suppliesImages ?? trip.suppliesImages,
       notes: notes ?? trip.notes,
       locations: locations ?? trip.locations,
+      reminderOptions: reminderOptions ?? trip.reminderOptions,
     );
   }
 }

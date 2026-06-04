@@ -55,7 +55,7 @@ class IndexedRoutes {
         path: MyRoutes.campsiteInfo.path,
         label: 'Campsite Info',
         icon: Icons.forest,
-        child: const CampsiteLocatorPage(),
+        child: const CampsiteInfoPage(),
     )
   ];
 

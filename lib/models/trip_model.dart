@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:santa_clara/models/trip_reminder_option.dart';
 
 class Trip {
   final String id;
@@ -11,6 +12,7 @@ class Trip {
   final List<String> suppliesImages;
   final String notes;
   final List<String> locations;
+  final List<TripReminderOption> reminderOptions;
 
   Trip({
     required this.id,
@@ -23,6 +25,7 @@ class Trip {
     required this.suppliesImages,
     required this.notes,
     required this.locations,
+    required this.reminderOptions,
   });
 
   factory Trip.fromFirestore(DocumentSnapshot doc) {
@@ -38,6 +41,9 @@ class Trip {
       suppliesImages: List<String>.from(data['supplies_images'] ?? []),
       notes: data['notes'] ?? '',
       locations: List<String>.from(data['locations'] ?? []),
+      reminderOptions: tripReminderOptionsFromFirestore(
+        data['reminder_offsets'] as List<dynamic>?,
+      ),
     );
   }
 
@@ -52,6 +58,7 @@ class Trip {
       String? notes,
       List<String>? images,
       List<String>? suppliesImages,
+      List<TripReminderOption>? reminderOptions,
     }) {
       return Trip(
         id: id ?? this.id,
@@ -64,6 +71,7 @@ class Trip {
         images: images ?? this.images,
         suppliesImages: suppliesImages ?? this.suppliesImages,
         completed: completed ?? 0,
+        reminderOptions: reminderOptions ?? this.reminderOptions,
       );
     }
 }

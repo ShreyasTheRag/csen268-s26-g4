@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:santa_clara/models/trip_model.dart';
+import 'package:santa_clara/models/trip_reminder_option.dart';
 
 class TripRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -47,6 +48,15 @@ class TripRepository {
     return query.docs.map((doc) => Trip.fromFirestore(doc)).toList();
   }
 
+  Future<void> updateTripReminders(
+    String tripId,
+    List<TripReminderOption> options,
+  ) async {
+    await _firestore.collection('trips').doc(tripId).update({
+      'reminder_offsets': tripReminderOptionsToFirestore(options),
+    });
+  }
+
   Future<void> updateTripDate(String tripId, {required DateTime date, required bool isStart}) async {
     final field = isStart ? 'start_date' : 'end_date';
     await _firestore.collection('trips').doc(tripId).update({
@@ -69,16 +79,23 @@ class TripRepository {
   }
 
   Future<Trip> createNewTrip(String tripName, String userId) async {
+    final now = DateTime.now();
+    final startDate = DateTime(now.year, now.month, now.day, 9, 0);
+    final endDate = startDate.add(const Duration(days: 3));
+
     final Map<String, dynamic> newTripData = {
       'trip_name': tripName,
       'attendees': [userId],
       'completed': 0,
-      'start_date': Timestamp.fromDate(DateTime.now()),
-      'end_date': Timestamp.fromDate(DateTime.now().add(const Duration(days: 3))),
+      'start_date': Timestamp.fromDate(startDate),
+      'end_date': Timestamp.fromDate(endDate),
       'images': [],
       'supplies_images': [],
       'notes': '',
       'locations': [],
+      'reminder_offsets': tripReminderOptionsToFirestore(
+        const [TripReminderOption.oneDayBefore],
+      ),
     };
 
     final docRef = await _firestore.collection('trips').add(newTripData);
@@ -88,12 +105,13 @@ class TripRepository {
       name: tripName,
       attendees: [userId],
       completed: 0,
-      startDate: DateTime.now(),
-      endDate: DateTime.now().add(const Duration(days: 3)),
+      startDate: startDate,
+      endDate: endDate,
       images: [],
       suppliesImages: [],
       notes: '',
-      locations: []
+      locations: [],
+      reminderOptions: const [TripReminderOption.oneDayBefore],
     );
   }
 }

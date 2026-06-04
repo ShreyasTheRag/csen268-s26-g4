@@ -13,6 +13,7 @@ import 'blocs/authentication/bloc/authentication_bloc.dart';
 import 'firebase_options.dart';
 import 'navigation/router.dart';
 import 'repositories/authentication/authentication_repository.dart';
+import 'services/trip_notification_service.dart';
 import 'theme/cubit/theme_cubit.dart';
 import 'theme/util.dart';
 import 'package:flutter/foundation.dart';
@@ -51,6 +52,9 @@ void main() async {
   FirebaseUIAuth.configureProviders([
     EmailAuthProvider(),
   ]);
+  if (!kIsWeb) {
+    await TripNotificationService.instance.initialize();
+  }
   Bloc.observer = const AppBlocObserver();
   runApp(MyApp());
 }

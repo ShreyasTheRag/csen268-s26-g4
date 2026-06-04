@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:pointer_interceptor/pointer_interceptor.dart';
+import 'package:santa_clara/blocs/trip_bloc.dart';
 import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
@@ -193,7 +195,8 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
                             const SizedBox(width: 8),
                             ElevatedButton(
                               onPressed: () {
-                                GoRouter.of(context).goNamed(MyRoutes.campsiteInfo.name, extra: selectedCampsite);
+                                BlocProvider.of<TripBloc>(context).add(SetLastViewedCampsite(selectedCampsite!));
+                                GoRouter.of(context).goNamed(MyRoutes.campsiteInfo.name);
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: const Color(0xFFD9D9D9),

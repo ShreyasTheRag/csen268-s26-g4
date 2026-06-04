@@ -8,6 +8,19 @@ import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
 import 'package:image_picker/image_picker.dart';
 
+enum TripImageCategory {
+  tripPhotos,
+  supplies,
+}
+
+extension TripImageCategoryX on TripImageCategory {
+  String get firestoreField =>
+      this == TripImageCategory.supplies ? 'supplies_images' : 'images';
+
+  String get storageFolder =>
+      this == TripImageCategory.supplies ? 'supplies' : 'images';
+}
+
 class TripImageRepository {
   static const String _projectId = 'csen268-s26-g4';
 
@@ -30,6 +43,7 @@ class TripImageRepository {
   Future<String> uploadTripImage({
     required String tripId,
     required String localPath,
+    TripImageCategory category = TripImageCategory.tripPhotos,
   }) async {
     final tripRef = _firestore.collection('trips').doc(tripId);
     final tripSnap = await tripRef.get();
@@ -50,6 +64,7 @@ class TripImageRepository {
           tripId: tripId,
           bytes: bytes,
           bucket: bucket,
+          category: category,
         );
       } on FirebaseException catch (e) {
         lastError = e;
@@ -62,11 +77,10 @@ class TripImageRepository {
       }
     }
 
-    // Firebase Storage not set up or blocked — save in Firestore so the app still works.
     debugPrint(
       'Storage upload failed ($lastError). Saving image in Firestore instead.',
     );
-    return _saveToFirestoreAsDataUrl(tripRef, bytes);
+    return _saveToFirestoreAsDataUrl(tripRef, bytes, category: category);
   }
 
   bool _shouldTryNextBucket(FirebaseException e) {
@@ -87,10 +101,12 @@ class TripImageRepository {
     required String tripId,
     required Uint8List bytes,
     required String bucket,
+    required TripImageCategory category,
   }) async {
     final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-    final storageRef =
-        _storageForBucket(bucket).ref().child('trips/$tripId/$fileName');
+    final storageRef = _storageForBucket(bucket)
+        .ref()
+        .child('trips/$tripId/${category.storageFolder}/$fileName');
 
     final uploadTask = storageRef.putData(
       bytes,
@@ -108,15 +124,16 @@ class TripImageRepository {
 
     final downloadUrl = await snapshot.ref.getDownloadURL();
     await tripRef.update({
-      'images': FieldValue.arrayUnion([downloadUrl]),
+      category.firestoreField: FieldValue.arrayUnion([downloadUrl]),
     });
     return downloadUrl;
   }
 
   Future<String> _saveToFirestoreAsDataUrl(
     DocumentReference<Map<String, dynamic>> tripRef,
-    Uint8List jpegBytes,
-  ) async {
+    Uint8List jpegBytes, {
+    required TripImageCategory category,
+  }) async {
     if (jpegBytes.length > 900000) {
       throw Exception(
         'Photo is too large for Firestore. Enable Firebase Storage in the console (Build > Storage > Get started).',
@@ -124,7 +141,7 @@ class TripImageRepository {
     }
     final dataUrl = 'data:image/jpeg;base64,${base64Encode(jpegBytes)}';
     await tripRef.update({
-      'images': FieldValue.arrayUnion([dataUrl]),
+      category.firestoreField: FieldValue.arrayUnion([dataUrl]),
     });
     return dataUrl;
   }
@@ -154,9 +171,10 @@ class TripImageRepository {
   Future<void> removeTripImage({
     required String tripId,
     required String imageUrl,
+    TripImageCategory category = TripImageCategory.tripPhotos,
   }) async {
     await _firestore.collection('trips').doc(tripId).update({
-      'images': FieldValue.arrayRemove([imageUrl]),
+      category.firestoreField: FieldValue.arrayRemove([imageUrl]),
     });
 
     if (imageUrl.startsWith('data:')) return;
