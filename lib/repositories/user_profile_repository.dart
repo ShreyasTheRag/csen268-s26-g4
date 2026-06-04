@@ -30,27 +30,6 @@ class UserProfileRepository {
     return candidates.toSet().toList();
   }
 
-  Future<void> ensureUserDocument({
-    required String userId,
-    required String email,
-  }) async {
-    final ref = _userRef(userId);
-    if ((await ref.get()).exists) return;
-
-    final handleBase = email.split('@').first;
-    await ref.set({
-      'email': email,
-      'name': handleBase,
-      'handle': '@$handleBase',
-      'friends': <String>[],
-      'pending_invites': <String>[],
-      'trips': <String>[],
-      'locations_visited': <String>[],
-      'equipment_images': <String>[],
-      'profile_image': '',
-    });
-  }
-
   Future<String> uploadProfileImage({
     required String userId,
     required String localPath,

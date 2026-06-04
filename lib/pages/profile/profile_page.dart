@@ -56,13 +56,12 @@ class _ProfilePageState extends State<ProfilePage> {
             );
           }
 
-          final user = authState.user;
-          final repo = UserProfileRepository();
+          final String userEmail = authState.user.email;
 
-          return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+          return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
             stream: FirebaseFirestore.instance
                 .collection('users')
-                .doc(user.uid)
+                .where('email', isEqualTo: userEmail)
                 .snapshots(),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -73,64 +72,45 @@ class _ProfilePageState extends State<ProfilePage> {
                 return const Center(child: Text('Error loading profile.'));
               }
 
-              if (!snapshot.hasData || !snapshot.data!.exists) {
-                return _ProfileSetupPrompt(
-                  onCreate: () async {
-                    try {
-                      await repo.ensureUserDocument(
-                        userId: user.uid,
-                        email: user.email,
-                      );
-                    } catch (e) {
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Could not create profile: $e')),
-                        );
-                      }
+              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc('default_user')
+                      .snapshots(),
+                  builder: (context, defaultSnapshot) {
+                    if (defaultSnapshot.connectionState ==
+                        ConnectionState.waiting) {
+                      return const _ProfileShimmerLoading();
                     }
+                    if (defaultSnapshot.hasError ||
+                        !defaultSnapshot.hasData ||
+                        !defaultSnapshot.data!.exists) {
+                      return const Center(
+                        child: Text('Profile data not found.'),
+                      );
+                    }
+
+                    return _EditableProfileContent(
+                      userId: defaultSnapshot.data!.id,
+                      userData: defaultSnapshot.data!.data()!,
+                      isEditing: _isEditing,
+                      onEditingDone: () => setState(() => _isEditing = false),
+                    );
                   },
                 );
               }
 
+              final userDoc = snapshot.data!.docs.first;
               return _EditableProfileContent(
-                userId: user.uid,
-                userData: snapshot.data!.data()!,
+                userId: userDoc.id,
+                userData: userDoc.data(),
                 isEditing: _isEditing,
                 onEditingDone: () => setState(() => _isEditing = false),
               );
             },
           );
         },
-      ),
-    );
-  }
-}
-
-class _ProfileSetupPrompt extends StatelessWidget {
-  const _ProfileSetupPrompt({required this.onCreate});
-
-  final VoidCallback onCreate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Set up your profile to share equipment and customize your account.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
-            FullWidthButton(
-              text: 'Create Profile',
-              color: Theme.of(context).colorScheme.primary,
-              onPressed: onCreate,
-            ),
-          ],
-        ),
       ),
     );
   }
