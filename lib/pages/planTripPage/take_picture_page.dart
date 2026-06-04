@@ -1,17 +1,158 @@
+import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:santa_clara/repositories/trip_image_repository.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
 
 class TakePicturePage extends StatefulWidget {
-  const TakePicturePage({super.key});
+  const TakePicturePage({super.key, required this.tripId});
+
+  final String tripId;
 
   @override
   State<TakePicturePage> createState() => _TakePicturePageState();
 }
 
 class _TakePicturePageState extends State<TakePicturePage> {
-  String _zoomLabel = '1x';
+  final TripImageRepository _imageRepository = TripImageRepository();
+  CameraController? _controller;
+  List<CameraDescription> _cameras = [];
+  int _cameraIndex = 0;
+  bool _isInitializing = true;
+  bool _isCapturing = false;
+  String? _errorMessage;
+  String? _statusMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    if (kIsWeb) {
+      setState(() {
+        _isInitializing = false;
+        _errorMessage = null;
+      });
+      return;
+    }
+
+    try {
+      _cameras = await availableCameras();
+      if (_cameras.isEmpty) {
+        setState(() {
+          _isInitializing = false;
+          _errorMessage = 'No camera found on this device.';
+        });
+        return;
+      }
+      await _setCamera(_cameraIndex);
+    } catch (e) {
+      setState(() {
+        _isInitializing = false;
+        _errorMessage = 'Could not open camera: $e';
+      });
+    }
+  }
+
+  Future<void> _setCamera(int index) async {
+    await _controller?.dispose();
+    _cameraIndex = index;
+    final camera = _cameras[_cameraIndex];
+    final controller = CameraController(
+      camera,
+      ResolutionPreset.high,
+      enableAudio: false,
+    );
+    await controller.initialize();
+    if (!mounted) {
+      await controller.dispose();
+      return;
+    }
+    setState(() {
+      _controller = controller;
+      _isInitializing = false;
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _flipCamera() async {
+    if (_cameras.length < 2) return;
+    setState(() => _isInitializing = true);
+    final nextIndex = (_cameraIndex + 1) % _cameras.length;
+    await _setCamera(nextIndex);
+  }
+
+  Future<void> _capturePhoto() async {
+    if (_isCapturing) return;
+    if (widget.tripId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No trip selected. Go back and try again.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isCapturing = true;
+      _statusMessage = 'Taking photo...';
+    });
+
+    try {
+      String localPath;
+
+      if (kIsWeb) {
+        final picker = ImagePicker();
+        final photo = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 85,
+        );
+        if (photo == null) return;
+        localPath = photo.path;
+      } else {
+        final controller = _controller;
+        if (controller == null || !controller.value.isInitialized) {
+          throw Exception('Camera is not ready');
+        }
+        final photo = await controller.takePicture();
+        localPath = photo.path;
+      }
+
+      if (!mounted) return;
+      setState(() => _statusMessage = 'Uploading photo...');
+
+      final downloadUrl = await _imageRepository.uploadTripImage(
+        tripId: widget.tripId,
+        localPath: localPath,
+      );
+
+      if (mounted) {
+        context.pop(downloadUrl);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save photo: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCapturing = false;
+          _statusMessage = null;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +172,7 @@ class _TakePicturePageState extends State<TakePicturePage> {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                _CameraPreviewPlaceholder(colorScheme: colorScheme),
+                _buildPreview(colorScheme),
                 Positioned(
                   top: 16,
                   left: 16,
@@ -40,43 +181,95 @@ class _TakePicturePageState extends State<TakePicturePage> {
                     color: colorScheme.primary,
                   ),
                 ),
+                if (_isCapturing)
+                  Container(
+                    color: Colors.black54,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const CircularProgressIndicator(color: Colors.white),
+                          if (_statusMessage != null) ...[
+                            const SizedBox(height: 16),
+                            Text(
+                              _statusMessage!,
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
           _CameraControlsBar(
             colorScheme: colorScheme,
-            zoomLabel: _zoomLabel,
-            onZoomTap: () {
-              setState(() {
-                _zoomLabel = _zoomLabel == '1x' ? '2x' : '1x';
-              });
-            },
-            onShutterTap: () => context.pop(),
-            onFlipCameraTap: () {},
+            onFlipCameraTap: kIsWeb ? null : _flipCamera,
+            onShutterTap: _capturePhoto,
+            shutterEnabled: !_isInitializing && _errorMessage == null,
           ),
         ],
       ),
     );
   }
-}
 
-class _CameraPreviewPlaceholder extends StatelessWidget {
-  const _CameraPreviewPlaceholder({required this.colorScheme});
+  Widget _buildPreview(ColorScheme colorScheme) {
+    if (_isInitializing) {
+      return Container(
+        color: colorScheme.surfaceContainerHighest,
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
-  final ColorScheme colorScheme;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: colorScheme.surfaceContainerHighest,
-      child: Center(
-        child: Icon(
-          Icons.photo_camera_outlined,
-          size: 80,
-          color: colorScheme.onSurfaceVariant,
+    if (_errorMessage != null) {
+      return Container(
+        color: colorScheme.surfaceContainerHighest,
+        padding: const EdgeInsets.all(24),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.photo_camera_outlined,
+                  size: 64, color: colorScheme.onSurfaceVariant),
+              const SizedBox(height: 16),
+              Text(
+                _errorMessage!,
+                textAlign: TextAlign.center,
+                style: TextStyle(color: colorScheme.onSurfaceVariant),
+              ),
+              if (kIsWeb) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'On web, use the shutter button to open the browser camera.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          ),
         ),
-      ),
-    );
+      );
+    }
+
+    if (kIsWeb) {
+      return Container(
+        color: colorScheme.surfaceContainerHighest,
+        child: Center(
+          child: Icon(
+            Icons.photo_camera_outlined,
+            size: 80,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    final controller = _controller;
+    if (controller == null || !controller.value.isInitialized) {
+      return Container(color: colorScheme.surfaceContainerHighest);
+    }
+
+    return CameraPreview(controller);
   }
 }
 
@@ -115,17 +308,15 @@ class _BackButton extends StatelessWidget {
 class _CameraControlsBar extends StatelessWidget {
   const _CameraControlsBar({
     required this.colorScheme,
-    required this.zoomLabel,
-    required this.onZoomTap,
     required this.onShutterTap,
-    required this.onFlipCameraTap,
+    required this.shutterEnabled,
+    this.onFlipCameraTap,
   });
 
   final ColorScheme colorScheme;
-  final String zoomLabel;
-  final VoidCallback onZoomTap;
   final VoidCallback onShutterTap;
-  final VoidCallback onFlipCameraTap;
+  final VoidCallback? onFlipCameraTap;
+  final bool shutterEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -141,29 +332,18 @@ class _CameraControlsBar extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          _CircleControlButton(
-            color: buttonColor,
-            onPressed: onZoomTap,
-            child: Text(
-              zoomLabel,
-              style: TextStyle(
-                color: onButtonColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
-            ),
-          ),
+          const SizedBox(width: 52, height: 52),
           _ShutterButton(
             outerColor: buttonColor,
             innerColor: colorScheme.secondary,
-            onPressed: onShutterTap,
+            onPressed: shutterEnabled ? onShutterTap : null,
           ),
           _CircleControlButton(
             color: buttonColor,
             onPressed: onFlipCameraTap,
             child: Icon(
               Icons.cameraswitch,
-              color: onButtonColor,
+              color: onFlipCameraTap != null ? onButtonColor : onButtonColor.withValues(alpha: 0.4),
               size: 26,
             ),
           ),
@@ -181,7 +361,7 @@ class _CircleControlButton extends StatelessWidget {
   });
 
   final Color color;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final Widget child;
 
   @override
@@ -211,27 +391,30 @@ class _ShutterButton extends StatelessWidget {
 
   final Color outerColor;
   final Color innerColor;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onPressed,
-      child: Container(
-        width: 78,
-        height: 78,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: outerColor,
-          border: Border.all(color: outerColor.withValues(alpha: 0.6), width: 4),
-        ),
-        child: Center(
-          child: Container(
-            width: 58,
-            height: 58,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: innerColor,
+      child: Opacity(
+        opacity: onPressed != null ? 1 : 0.5,
+        child: Container(
+          width: 78,
+          height: 78,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: outerColor,
+            border: Border.all(color: outerColor.withValues(alpha: 0.6), width: 4),
+          ),
+          child: Center(
+            child: Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: innerColor,
+              ),
             ),
           ),
         ),
