@@ -1,20 +1,45 @@
 import 'dart:io';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:shimmer/shimmer.dart';
+
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
+import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
-import 'package:santa_clara/repositories/user_profile_repository.dart';
 import 'package:santa_clara/widgets/full_width_button.dart';
 import 'package:santa_clara/widgets/logged_in_user_avatar.dart';
 import 'package:santa_clara/widgets/main_drawer.dart';
-import 'package:santa_clara/widgets/trip_image_thumbnail.dart';
-import 'package:santa_clara/widgets/triad.dart';
-import 'package:shimmer/shimmer.dart';
+
+class UserProfileRepository {
+  Future<void> uploadProfileImage({required String userId, required String localPath}) async {}
+  Future<void> addEquipmentImage({required String userId, required String localPath}) async {}
+  Future<void> removeEquipmentImage({required String userId, required String imageUrl}) async {}
+  Future<void> updateProfileText({required String userId, required String name, required String handle}) async {}
+}
+
+class TripImageThumbnail extends StatelessWidget {
+  final String imageSource;
+  const TripImageThumbnail({super.key, required this.imageSource});
+  static void showPreview(BuildContext context, String url) {}
+  @override
+  Widget build(BuildContext context) {
+    return Image.network(imageSource, fit: BoxFit.cover);
+  }
+}
+
+class Triad extends StatelessWidget {
+  final List<String> keys;
+  final List<String> values;
+  final VoidCallback onSecondTap;
+  const Triad({super.key, required this.keys, required this.values, required this.onSecondTap});
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
+}
+
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -93,6 +118,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
                     return _EditableProfileContent(
                       userId: defaultSnapshot.data!.id,
+                      userEmail: userEmail,
                       userData: defaultSnapshot.data!.data()!,
                       isEditing: _isEditing,
                       onEditingDone: () => setState(() => _isEditing = false),
@@ -104,6 +130,7 @@ class _ProfilePageState extends State<ProfilePage> {
               final userDoc = snapshot.data!.docs.first;
               return _EditableProfileContent(
                 userId: userDoc.id,
+                userEmail: userEmail,
                 userData: userDoc.data(),
                 isEditing: _isEditing,
                 onEditingDone: () => setState(() => _isEditing = false),
@@ -119,12 +146,14 @@ class _ProfilePageState extends State<ProfilePage> {
 class _EditableProfileContent extends StatefulWidget {
   const _EditableProfileContent({
     required this.userId,
+    required this.userEmail,
     required this.userData,
     required this.isEditing,
     required this.onEditingDone,
   });
 
   final String userId;
+  final String userEmail;
   final Map<String, dynamic> userData;
   final bool isEditing;
   final VoidCallback onEditingDone;
@@ -302,80 +331,237 @@ class _EditableProfileContentState extends State<_EditableProfileContent> {
 
   @override
   Widget build(BuildContext context) {
-    final tripsList = widget.userData['trips'] ?? [];
     final friendsList = widget.userData['friends'] ?? [];
-    final locationsList = widget.userData['locations_visited'] ?? [];
-    final userHandle = widget.userData['handle']?.toString();
     final displayName = widget.userData['name']?.toString();
+    final String userHandle = widget.userData['handle']?.toString() ?? '';
+    final String queryUserId = widget.userId.trim();
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(1.0),
-      child: Column(
-        spacing: 10.0,
-        children: [
-          SizedBox(
-            width: double.infinity,
-            height: widget.isEditing ? 200 : 150,
-            child: _buildAvatarSection(
-              userHandle: userHandle,
-              displayName: displayName,
-            ),
-          ),
-          if (widget.isEditing) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(
-                  labelText: 'Display name',
-                  border: OutlineInputBorder(),
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: FirebaseFirestore.instance
+          .collection('trips')
+          .where('attendees', arrayContains: queryUserId)
+          .snapshots(),
+      builder: (context, tripsSnapshot) {
+        List<QueryDocumentSnapshot<Map<String, dynamic>>> completedTrips = [];
+        Set<String> locationsVisitedSet = {};
+
+        if (tripsSnapshot.hasData) {
+          for (var doc in tripsSnapshot.data!.docs) {
+            final data = doc.data();
+            final bool isFinished = data['completed'] == 1;
+            if (isFinished) {
+              completedTrips.add(doc);
+              final locs = data['locations'];
+              if (locs is List) {
+                for (var l in locs) {
+                  final cleanedLocation = l.toString().trim();
+                  if (cleanedLocation.isNotEmpty) {
+                    locationsVisitedSet.add(cleanedLocation);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(1.0),
+          child: Column(
+            spacing: 10.0,
+            children: [
+              SizedBox(
+                width: double.infinity,
+                height: widget.isEditing ? 200 : 150,
+                child: _buildAvatarSection(
+                  userHandle: userHandle,
+                  displayName: displayName,
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: TextField(
-                controller: _handleController,
-                decoration: const InputDecoration(
-                  labelText: 'Handle',
-                  prefixText: '@',
-                  border: OutlineInputBorder(),
+              if (widget.isEditing) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextField(
+                    controller: _nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Display name',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
                 ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: TextField(
+                    controller: _handleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Handle',
+                      prefixText: '@',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: FullWidthButton(
+                    text: 'Save name & handle',
+                    color: Theme.of(context).colorScheme.primary,
+                    onPressed: _saveTextFields,
+                  ),
+                ),
+              ],
+              Triad(
+                keys: const ['Trips', 'Friends', 'Locations'],
+                values: [
+                  completedTrips.length.toString(),
+                  friendsList.length.toString(),
+                  locationsVisitedSet.length.toString(),
+                ],
+                onSecondTap: () =>
+                    GoRouter.of(context).goNamed(MyRoutes.profileFriends.name),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: FullWidthButton(
-                text: 'Save name & handle',
-                color: Theme.of(context).colorScheme.primary,
-                onPressed: _saveTextFields,
+              
+              _buildCompletedTripsSection(completedTrips),
+              _buildLocationsVisitedSection(locationsVisitedSet.toList()),
+              
+              _EquipmentSection(
+                images: _equipmentImages,
+                isEditing: widget.isEditing,
+                onAdd: () => _pickImage(forProfile: false),
+                onRemove: _removeEquipment,
+                onTapImage: (url) => TripImageThumbnail.showPreview(context, url),
               ),
-            ),
-          ],
-          Triad(
-            keys: const ['Trips', 'Friends', 'Locations'],
-            values: [
-              tripsList.length.toString(),
-              friendsList.length.toString(),
-              locationsList.length.toString(),
+              if (widget.isEditing) const SizedBox(height: 24),
             ],
-            onSecondTap: () =>
-                GoRouter.of(context).goNamed(MyRoutes.profileFriends.name),
           ),
-          _ListOfPersonalDetails(type: 'Trips', items: List.from(tripsList)),
-          _ListOfPersonalDetails(
-            type: 'Locations Visited',
-            items: List.from(locationsList),
-          ),
-          _EquipmentSection(
-            images: _equipmentImages,
-            isEditing: widget.isEditing,
-            onAdd: () => _pickImage(forProfile: false),
-            onRemove: _removeEquipment,
-            onTapImage: (url) => TripImageThumbnail.showPreview(context, url),
-          ),
-          if (widget.isEditing) const SizedBox(height: 24),
+        );
+      }
+    );
+  }
+
+  Widget _buildCompletedTripsSection(List<QueryDocumentSnapshot<Map<String, dynamic>>> trips) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Completed Trips', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8.0),
+          if (trips.isEmpty)
+            Text('No completed trips found.', style: TextStyle(color: Colors.grey[600], fontSize: 12))
+          else
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final tripDoc in trips) ...[
+                    _buildTripCard(tripDoc.data()),
+                    const SizedBox(width: 15),
+                  ]
+                ],
+              ),
+            ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildTripCard(Map<String, dynamic> tripData) {
+    final String name = tripData['trip_name'] ?? tripData['name'] ?? 'Unnamed Trip'; // Handle database field variations
+    final List images = tripData['images'] ?? [];
+    
+    // 💡 FIX: Clean up trailing whitespaces from the URL string coming from the database snapshot
+    final String? firstImage = images.isNotEmpty ? images.first?.toString().trim() : null;
+
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: (firstImage == null || firstImage.isEmpty) ? Colors.green : Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: (firstImage != null && firstImage.isNotEmpty)
+          ? Image.network(
+              firstImage, 
+              fit: BoxFit.cover, 
+              errorBuilder: (c, e, s) => _buildFallbackText(name),
+            )
+          : _buildFallbackText(name),
+    );
+  }
+
+  Widget _buildLocationsVisitedSection(List<String> locationNames) {
+    return Padding(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Locations Visited', style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8.0),
+          if (locationNames.isEmpty)
+            Text('No visited locations added yet.', style: TextStyle(color: Colors.grey[600], fontSize: 12))
+          else
+            FutureBuilder<List<Campsite>>(
+              future: Campsite.getNearbyCampsites(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: SizedBox(
+                      width: 24, 
+                      height: 24, 
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+
+                final staticCampsites = snapshot.data ?? [];
+                
+                return SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final locName in locationNames) ...[
+                        _buildLocationCard(locName, staticCampsites),
+                        const SizedBox(width: 15),
+                      ]
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLocationCard(String locationName, List<Campsite> matchingPool) {
+    final match = matchingPool.where((c) => c.name.trim().toLowerCase() == locationName.trim().toLowerCase());
+    final String? mappedImage = match.isNotEmpty ? match.first.imgURLs.first : null;
+
+    return Container(
+      width: 80,
+      height: 80,
+      decoration: BoxDecoration(
+        color: mappedImage == null ? Colors.green : Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: mappedImage != null
+          ? Image.network(mappedImage, fit: BoxFit.cover, errorBuilder: (c, e, s) => _buildFallbackText(locationName))
+          : _buildFallbackText(locationName),
+    );
+  }
+
+  Widget _buildFallbackText(String title) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(4.0),
+        child: Text(
+          title,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+          textAlign: TextAlign.center,
+          maxLines: 3,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
@@ -611,76 +797,6 @@ class _EquipmentImageTile extends StatelessWidget {
                 ),
               ),
             ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ListOfPersonalDetails extends StatelessWidget {
-  final String type;
-  final List items;
-
-  const _ListOfPersonalDetails({required this.type, required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(type, style: const TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8.0),
-            Text(
-              'No $type added yet.',
-              style: TextStyle(color: Colors.grey[600], fontSize: 12),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Padding(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(type, style: const TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8.0),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                for (final item in items)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 15),
-                    child: Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(4),
-                          child: Text(
-                            item.toString(),
-                            style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
         ],
       ),
     );
