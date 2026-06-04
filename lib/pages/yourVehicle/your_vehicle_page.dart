@@ -199,14 +199,8 @@ class YourVehiclePageBody extends StatelessWidget {
                     keys: const ["Drive Type", "Class Type", "Rating"], 
                     values: [vehicle.driveType.split('/')[0], vehicle.vehicleType.split(' ')[0], "5 / 5"]
                   ),
-                  const SectionLabel("Recommended Accessories"),
-                  BodyText(text: accessoriesString.isNotEmpty ? accessoriesString : "No specialized gear alterations needed!"),
                   const SectionLabel("Warnings"),
                   BodyText(text: vehicle.driveType.toLowerCase().contains('4wd') ? "None" : "Caution: Low ground clearance or 2WD drivetrain configuration."),
-                  AddThingsButton(
-                    title: "Add Recommended Accessories", 
-                    action: () => _showAccessoriesDialog(context),
-                  )
                 ],
               ),
             );
