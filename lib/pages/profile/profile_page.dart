@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:santa_clara/blocs/trip_bloc.dart';
+import 'package:santa_clara/widgets/triad.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
@@ -31,15 +32,6 @@ class TripImageThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     return Image.network(imageSource, fit: BoxFit.cover);
   }
-}
-
-class Triad extends StatelessWidget {
-  final List<String> keys;
-  final List<String> values;
-  final VoidCallback onSecondTap;
-  const Triad({super.key, required this.keys, required this.values, required this.onSecondTap});
-  @override
-  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 
@@ -501,12 +493,12 @@ class _EditableProfileContentState extends State<_EditableProfileContent> {
 
   Widget _buildLocationsVisitedSection(List<String> locationNames) {
     return Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text('Locations Visited', style: TextStyle(fontWeight: FontWeight.bold)),
-          const SizedBox(height: 8.0),
+          const SizedBox(height: 16.0),
           if (locationNames.isEmpty)
             Text('No visited locations added yet.', style: TextStyle(color: Colors.grey[600], fontSize: 12))
           else
@@ -525,16 +517,32 @@ class _EditableProfileContentState extends State<_EditableProfileContent> {
 
                 final staticCampsites = snapshot.data ?? [];
                 
-                return SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final locName in locationNames) ...[
-                        _buildLocationCard(locName, staticCampsites),
-                        const SizedBox(width: 15),
-                      ]
-                    ],
-                  ),
+                List<List<String>> rows = [];
+                for (var i = 0; i < locationNames.length; i += 3) {
+                  rows.add(
+                    locationNames.sublist(
+                      i, 
+                      i + 3 > locationNames.length ? locationNames.length : i + 3
+                    )
+                  );
+                }
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (int rowIndex = 0; rowIndex < rows.length; rowIndex++) ...[
+                      Wrap(
+                        spacing: 15.0,
+                        alignment: WrapAlignment.start,
+                        children: [
+                          for (final locName in rows[rowIndex])
+                            _buildLocationCard(locName, staticCampsites),
+                        ],
+                      ),
+                      if (rowIndex < rows.length - 1) 
+                        const SizedBox(height: 15.0), 
+                    ]
+                  ],
                 );
               },
             ),
