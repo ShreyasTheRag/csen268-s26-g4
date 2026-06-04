@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/models/trip_model.dart';
 import 'package:santa_clara/models/trip_reminder_option.dart';
 import 'package:santa_clara/repositories/trip_image_repository.dart';
@@ -76,6 +77,11 @@ class UpdateTripLocationsEvent extends TripEvent {
   });
 }
 
+class SetLastViewedCampsite extends TripEvent {
+  final Campsite campsite;
+  SetLastViewedCampsite(this.campsite);
+}
+
 // States
 enum TripStatus {
   initial,
@@ -92,6 +98,7 @@ class TripState {
   final Trip? selectedTrip;
   final String? currentUserId;
   final String? errorMessage;
+  final Campsite? lastViewedCampsite;
 
   TripState({
     this.status = TripStatus.initial,
@@ -99,6 +106,7 @@ class TripState {
     this.selectedTrip,
     this.currentUserId,
     this.errorMessage,
+    this.lastViewedCampsite,
   });
 
   TripState copyWith({
@@ -107,6 +115,7 @@ class TripState {
     Trip? selectedTrip,
     String? currentUserId,
     String? errorMessage,
+    Campsite? lastViewedCampsite,
   }) {
     return TripState(
       status: status ?? this.status,
@@ -114,6 +123,7 @@ class TripState {
       selectedTrip: selectedTrip ?? this.selectedTrip,
       currentUserId: currentUserId ?? this.currentUserId,
       errorMessage: errorMessage ?? this.errorMessage,
+      lastViewedCampsite: lastViewedCampsite ?? this.lastViewedCampsite,
     );
   }
 }
@@ -321,6 +331,10 @@ class TripBloc extends Bloc<TripEvent, TripState> {
       } catch (e) {
         emit(state.copyWith(status: TripStatus.failure, errorMessage: e.toString()));
       }
+    });
+
+    on<SetLastViewedCampsite>((event, emit) {
+      emit(state.copyWith(lastViewedCampsite: event.campsite));
     });
 
     on<UpdateTripLocationsEvent>(_onUpdateTripLocations);

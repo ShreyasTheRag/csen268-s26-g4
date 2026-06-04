@@ -1,4 +1,5 @@
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
+import 'package:santa_clara/blocs/trip_bloc.dart';
 import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/models/take_picture_args.dart';
 import 'package:santa_clara/pages/campsite/campsite_info.dart';
@@ -144,7 +145,7 @@ GoRouter router(AuthenticationBloc authenticationBloc) {
                   name: IndexedRoutes.routes[4].name,
                   path: IndexedRoutes.routes[4].path,
                   builder: (context, state) {
-                    return CampsiteInfoPage(campsite: state.extra as Campsite);
+                    return const CampsiteInfoPage();
                   },
                 ),
               ],

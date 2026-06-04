@@ -19,9 +19,7 @@ import 'package:santa_clara/widgets/photo_gallery.dart';
 import '../../widgets/section_label.dart';
 
 class CampsiteInfoPage extends StatefulWidget {
-  final Campsite campsite;
-
-  const CampsiteInfoPage({super.key, required this.campsite});
+  const CampsiteInfoPage({super.key});
 
   @override
   State<CampsiteInfoPage> createState() => _CampsiteInfoPageState();
@@ -67,34 +65,56 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
             return const Center(child: CircularProgressIndicator());
           }
 
+          final Campsite? currentCampsite = tripState.lastViewedCampsite;
+
+          if (currentCampsite == null) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.travel_explore, size: 64, color: Colors.grey.shade400),
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Select a campsite from the campsite selector page",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 16, color: Colors.grey, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 HeroSection(
-                  title: widget.campsite.name, 
-                  imageURI: widget.campsite.imgURLs[0], 
+                  title: currentCampsite.name, 
+                  imageURI: currentCampsite.imgURLs[0], 
                   imageIsWeb: true,
                 ),
                 const SizedBox(height: 20),
 
-                PhotoGallery(urls: widget.campsite.imgURLs),
+                PhotoGallery(urls: currentCampsite.imgURLs),
                 const SizedBox(height: 20),
 
                 const SectionLabel('DESCRIPTION'),
-                BodyText(text: widget.campsite.description),
+                BodyText(text: currentCampsite.description),
                 const SizedBox(height: 20),
 
                 const SectionLabel('LOCATION'),
                 SizedBox(
                   height: 300, 
                   child: CustomGoogleMap(
-                    locations: [widget.campsite.position],
+                    locations: [currentCampsite.position],
                     extraMarkers: {
                       Marker(
-                        markerId: MarkerId(widget.campsite.name),
-                        position: widget.campsite.position,
+                        markerId: MarkerId(currentCampsite.name),
+                        position: currentCampsite.position,
                       ),
                     },
                   ),
@@ -116,7 +136,7 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
                             .collection('trips')
                             .doc(targetTrip.id)
                             .update({
-                          'locations': FieldValue.arrayUnion([widget.campsite.name]),
+                          'locations': FieldValue.arrayUnion([currentCampsite.name]),
                         });
                       } catch (e) {
                         if (context.mounted) {
@@ -132,7 +152,7 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
                         BlocProvider.of<TripBloc>(context).add(
                           UpdateTripLocationsEvent(
                             tripId: targetTrip.id, 
-                            locationName: widget.campsite.name,
+                            locationName: currentCampsite.name,
                           ),
                         );
 
