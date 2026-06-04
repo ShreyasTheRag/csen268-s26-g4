@@ -11,7 +11,7 @@ class Campsite {
   final int reviews;
   final String price;
   final String description;
-  final String imgURL;
+  final List<String> imgURLs;
   bool isStarred;
 
   Campsite({
@@ -19,7 +19,7 @@ class Campsite {
     required this.name,
     required this.position,
     required this.description,
-    required this.imgURL,
+    required this.imgURLs,
     this.rating = 0.0,
     this.reviews = 0,
     this.price = '\$\$',
@@ -33,11 +33,25 @@ class Campsite {
     if (jsonObj['FacilityDescription']?.toString().toLowerCase().contains('free') == true) {
       determinedPrice = 'Free';
     }
-    String imgURL = jsonObj['MEDIA'].length == 0 ? 'assets/car.png' : jsonObj['MEDIA'][0]['URL'];
+    final rawMedia = jsonObj['MEDIA'];
+    List<String> determinedImgURL = ['assets/car.png'];
+
+    // 2. Check if it exists and is an active List array
+    if (rawMedia is List && rawMedia.isNotEmpty) {
+      // Grab the first element safely as a Map structure
+      determinedImgURL = [];
+      for (var media in rawMedia) {
+        if (media is Map) {
+          // Explicitly target the URL string item safely
+          determinedImgURL.add(media['URL']?.toString() ?? 'assets/car.png');
+        }
+      }
+      
+    }
     int nests = 0;
-    String rawDescription = jsonObj['FacilityDescription'].split('');
+    List<String> rawDescription = jsonObj['FacilityDescription'].split('');
     String description = '';
-    for (var c in rawDescription.split('')) {
+    for (var c in rawDescription) {
       if (c == '<') {
         nests += 1;
       } else if (c == '>') {
@@ -51,7 +65,7 @@ class Campsite {
       name: jsonObj['FacilityName'] ?? 'Unknown Dispersed Campsite',
       position: LatLng(lat, lng),
       description: description,
-      imgURL: imgURL,
+      imgURLs: determinedImgURL,
       price: determinedPrice,
       // rating and reviews default to 0.0 / 0 since RIDB lacks a native review count.
       // This maps perfectly to Treksetter's internal database once users start rating them!

@@ -150,7 +150,10 @@ class _CampsiteLocatorPageState extends State<CampsiteLocatorPage> {
           children: [
             Row(
               children: [
-                Expanded(flex: 4, child: Image.asset('assets/car.png', fit: BoxFit.cover, height: double.infinity)),
+                Expanded(
+                  flex: 4,
+                  child: (selectedCampsite!.imgURLs.length == 1 && selectedCampsite!.imgURLs[0] == 'assets/car.png') ? Image.asset('assets/car.png', fit: BoxFit.cover, height: double.infinity) : Image.network(selectedCampsite!.imgURLs[0], fit: BoxFit.cover, height: double.infinity)
+                ),
                 Expanded(
                   flex: 6,
                   child: Padding(

@@ -45,10 +45,10 @@ class _CampsiteInfoPageState extends State<CampsiteInfoPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            HeroSection(title: campsite!.name, imageURI: campsite!.imgURL, imageIsWeb: true),
+            HeroSection(title: campsite!.name, imageURI: campsite!.imgURLs[0], imageIsWeb: true),
             const SizedBox(height: 20),
 
-            const PhotoGallery(),
+            PhotoGallery(urls: campsite!.imgURLs),
             const SizedBox(height: 20),
 
             const SectionLabel('DESCRIPTION'),
