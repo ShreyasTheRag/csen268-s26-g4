@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:santa_clara/blocs/trip_bloc.dart';
 import 'package:santa_clara/widgets/triad.dart';
+import 'package:santa_clara/widgets/trip_image_thumbnail.dart';
 import 'package:shimmer/shimmer.dart';
 
 import 'package:santa_clara/blocs/authentication/bloc/authentication_bloc.dart';
@@ -22,16 +23,6 @@ class UserProfileRepository {
   Future<void> addEquipmentImage({required String userId, required String localPath}) async {}
   Future<void> removeEquipmentImage({required String userId, required String imageUrl}) async {}
   Future<void> updateProfileText({required String userId, required String name, required String handle}) async {}
-}
-
-class TripImageThumbnail extends StatelessWidget {
-  final String imageSource;
-  const TripImageThumbnail({super.key, required this.imageSource});
-  static void showPreview(BuildContext context, String url) {}
-  @override
-  Widget build(BuildContext context) {
-    return Image.network(imageSource, fit: BoxFit.cover);
-  }
 }
 
 

@@ -7,6 +7,7 @@ import 'package:santa_clara/models/campsite.dart';
 import 'package:santa_clara/navigation/my_routes.dart';
 import 'package:santa_clara/pages/profile/profile_page.dart';
 import 'package:santa_clara/widgets/google_maps.dart';
+import 'package:santa_clara/widgets/trip_image_thumbnail.dart';
 
 class TripDetailSheet extends StatelessWidget {
   final Map<String, dynamic> tripData;

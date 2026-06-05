@@ -28,21 +28,21 @@
 	<true/>
 	<key>MapsApiKey</key>
 	<string>$(MAPS_API_KEY)</string>
-	<key>NSCameraUsageDescription</key>
-	<string>This app uses the camera to take photos for your trips.</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>This app saves trip photos to your library.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-	<string>This app needs access to location when in the background.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to location when open.</string>
-	<key>NSLocalNetworkUsageDescription</key>
-	<string>Allow Flutter on your Mac to connect to this app for debugging.</string>
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_dartVmService._tcp</string>
 		<string>_dartobservatory._tcp</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>This app uses the camera to take photos for your trips.</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Allow Flutter on your Mac to connect to this app for debugging.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs access to location when in the background.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs access to location when open.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app saves trip photos to your library.</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
